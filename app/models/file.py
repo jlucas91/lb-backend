@@ -19,6 +19,9 @@ class File(Base):
     filename: Mapped[str] = mapped_column(String(255))
     content_type: Mapped[str] = mapped_column(String(100))
     size_bytes: Mapped[int | None] = mapped_column(Integer)
+    scouting_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("scoutings.id", ondelete="CASCADE"), index=True
+    )
     caption: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime | None] = mapped_column(server_default=func.now())

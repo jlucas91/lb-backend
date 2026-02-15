@@ -10,9 +10,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Lock file
 docker run --rm -v $(pwd):/app -w /app ghcr.io/astral-sh/uv:python3.13-bookworm-slim uv lock
 
-# Lint + format + typecheck
+# Lint + format + typecheck (always auto-fix)
 docker run --rm -v $(pwd):/app -w /app ghcr.io/astral-sh/uv:python3.13-bookworm-slim \
-  sh -c "uv run ruff check app/ tests/ && uv run ruff format --check app/ tests/ && uv run mypy app/"
+  sh -c "uv run ruff check --fix app/ tests/ && uv run ruff format app/ tests/ && uv run mypy app/"
 
 # Tests (requires DB running via docker compose)
 docker run --rm --network lb-backend_default \
@@ -56,7 +56,7 @@ Request → Endpoint (app/api/v1/endpoints/) → Controller (app/controllers/) �
 ## Key Conventions
 
 - Python 3.13 — use `enum.StrEnum`, PEP 695 type params (`class Foo[T]`), `AsyncGenerator[T]` (not `AsyncGenerator[T, None]`)
-- Ruff strict mode: E, W, F, I, N, UP, B, SIM, RUF. B008 suppressed in `app/api/**` for `Depends()`
+- Ruff strict mode: E, W, F, I, N, UP, B, SIM, RUF. B008 suppressed in `app/api/**` for `Depends()`. Always run ruff with `--fix` and `ruff format` (not `--check`) to auto-fix lint and formatting issues
 - mypy strict mode. `bcrypt.*` and `asyncpg.*` have `ignore_missing_imports`. `jwt.encode` return needs `# type: ignore[return-value]` (stubs say bytes, actually str)
 - After `db.flush()` on models with `onupdate=func.now()`, call `db.refresh(obj)` before returning to avoid lazy-load errors in Pydantic serialization
 - Docker ports: db=5433 host, app=9000 host. Postgres volume at `/var/lib/postgresql` (not `/var/lib/postgresql/data`)

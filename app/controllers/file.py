@@ -27,10 +27,15 @@ def generate_presign(filename: str, content_type: str) -> tuple[str, str]:
 
 
 async def confirm_upload(
-    db: AsyncSession, location_id: uuid.UUID, data: FileConfirm
+    db: AsyncSession,
+    location_id: uuid.UUID,
+    data: FileConfirm,
+    *,
+    scouting_id: uuid.UUID | None = None,
 ) -> File:
     file = File(
         location_id=location_id,
+        scouting_id=scouting_id,
         file_type=infer_file_type(data.content_type),
         storage_key=data.storage_key,
         filename=data.filename,
@@ -48,12 +53,17 @@ async def list_files(
     location_id: uuid.UUID,
     *,
     file_type: str | None = None,
+    scouting_id: uuid.UUID | None = None,
 ) -> list[File]:
     query = (
         select(File)
         .where(File.location_id == location_id)
         .order_by(File.sort_order, File.created_at)
     )
+    if scouting_id is not None:
+        query = query.where(File.scouting_id == scouting_id)
+    else:
+        query = query.where(File.scouting_id.is_(None))
     if file_type:
         query = query.where(File.file_type == file_type)
     result = await db.execute(query)

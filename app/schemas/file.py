@@ -30,6 +30,7 @@ class FileUpdate(BaseModel):
 class FileResponse(BaseModel):
     id: uuid.UUID
     location_id: uuid.UUID
+    scouting_id: uuid.UUID | None = None
     file_type: str
     storage_key: str
     filename: str

@@ -43,3 +43,30 @@ class ProductionLocationStatus(enum.StrEnum):
 class SharePermission(enum.StrEnum):
     VIEW = "view"
     EDIT = "edit"
+
+
+class ProjectType(enum.StrEnum):
+    MOVIE = "movie"
+    TV_SHOW = "tv_show"
+    COMMERCIAL = "commercial"
+    MUSIC_VIDEO = "music_video"
+    DOCUMENTARY = "documentary"
+    SHORT_FILM = "short_film"
+    OTHER = "other"
+
+
+class ProjectStatus(enum.StrEnum):
+    ACTIVE = "active"
+    WRAPPED = "wrapped"
+    ARCHIVED = "archived"
+
+
+class ProjectRole(enum.StrEnum):
+    OWNER = "owner"
+    MANAGER = "manager"
+    MEMBER = "member"
+
+
+class ScoutingStatus(enum.StrEnum):
+    DRAFT = "draft"
+    COMPLETE = "complete"
