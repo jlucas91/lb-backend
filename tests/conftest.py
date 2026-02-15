@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -11,8 +12,20 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import create_access_token, hash_password
+from app.core.storage import ObjectMeta, S3StorageService, get_storage
 from app.main import app
+from app.models import Base
 from app.models.user import User
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def _create_tables() -> AsyncIterator[None]:
+    """Create all tables once per test session (for fresh CI databases)."""
+    engine = create_async_engine(get_settings().database_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
 
 
 @pytest.fixture(autouse=True)
@@ -41,6 +54,25 @@ async def db_session() -> AsyncIterator[AsyncSession]:
         await txn.rollback()
     await test_engine.dispose()
     app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture(autouse=True)
+def mock_storage() -> AsyncMock:
+    """Override get_storage with an AsyncMock for all tests."""
+    mock = AsyncMock(spec=S3StorageService)
+    mock.generate_storage_key.return_value = "uploads/test-uuid/photo.jpg"
+    mock.generate_upload_url.return_value = "https://s3.example.com/presigned-put"
+    mock.generate_download_url.return_value = "https://s3.example.com/presigned-get"
+    mock.head_object.return_value = ObjectMeta(
+        content_type="image/jpeg", content_length=12345
+    )
+    mock.delete_object.return_value = None
+
+    app.dependency_overrides[get_storage] = lambda: mock
+
+    yield mock  # type: ignore[misc]
+
+    app.dependency_overrides.pop(get_storage, None)
 
 
 @pytest.fixture
