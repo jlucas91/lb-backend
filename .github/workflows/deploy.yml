@@ -84,20 +84,14 @@ jobs:
 
       - name: Run Alembic migration
         run: |
-          # Get current migrate task def, update image + secrets, register new revision
+          # Get current migrate task def, update image, register new revision
           TASK_DEF=$(aws ecs describe-task-definition \
             --task-definition "${{ secrets.ECS_MIGRATE_TASK_FAMILY }}" \
             --query 'taskDefinition')
 
           NEW_TASK_DEF=$(echo "$TASK_DEF" | jq \
             --arg IMAGE "$IMAGE" \
-            --arg DB_URL "${{ secrets.DATABASE_URL }}" \
-            --arg SECRET "${{ secrets.SECRET_KEY }}" \
             '.containerDefinitions[0].image = $IMAGE |
-             .containerDefinitions[0].environment = [
-               {"name": "DATABASE_URL", "value": $DB_URL},
-               {"name": "SECRET_KEY", "value": $SECRET}
-             ] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
                  .compatibilities, .registeredAt, .registeredBy)')
 
@@ -141,20 +135,14 @@ jobs:
 
       - name: Deploy to ECS
         run: |
-          # Get current app task def, update image + secrets, register new revision
+          # Get current app task def, update image, register new revision
           TASK_DEF=$(aws ecs describe-task-definition \
             --task-definition "${{ secrets.ECS_APP_TASK_FAMILY }}" \
             --query 'taskDefinition')
 
           NEW_TASK_DEF=$(echo "$TASK_DEF" | jq \
             --arg IMAGE "$IMAGE" \
-            --arg DB_URL "${{ secrets.DATABASE_URL }}" \
-            --arg SECRET "${{ secrets.SECRET_KEY }}" \
             '.containerDefinitions[0].image = $IMAGE |
-             .containerDefinitions[0].environment = (
-               [.containerDefinitions[0].environment[] | select(.name != "DATABASE_URL" and .name != "SECRET_KEY")] +
-               [{"name": "DATABASE_URL", "value": $DB_URL}, {"name": "SECRET_KEY", "value": $SECRET}]
-             ) |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
                  .compatibilities, .registeredAt, .registeredBy)')
 
