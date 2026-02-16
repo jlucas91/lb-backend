@@ -15,16 +15,31 @@ from app.controllers.scripted_location import (
     update_scripted_location,
 )
 from app.core.database import get_db
+from app.models.scripted_location_location import ScriptedLocationLocation
 from app.models.user import User
 from app.schemas.scripted_location import (
+    ProjectLocationSummary,
     ScriptedLocationCreate,
     ScriptedLocationLocationCreate,
     ScriptedLocationLocationResponse,
     ScriptedLocationResponse,
     ScriptedLocationUpdate,
+    UserSummary,
 )
 
 router = APIRouter()
+
+
+def _build_sll_response(
+    sll: ScriptedLocationLocation,
+) -> ScriptedLocationLocationResponse:
+    return ScriptedLocationLocationResponse(
+        project_location_id=sll.project_location_id,
+        added_by=UserSummary.model_validate(sll.added_by),
+        notes=sll.notes,
+        added_at=sll.added_at,
+        location=ProjectLocationSummary.model_validate(sll.project_location),
+    )
 
 
 # --- Scripted Location CRUD ---
@@ -124,7 +139,7 @@ async def list_locations(
     items = await list_scripted_location_locations(
         db, project_id, scripted_location_id, current_user
     )
-    return [ScriptedLocationLocationResponse.model_validate(sll) for sll in items]
+    return [_build_sll_response(sll) for sll in items]
 
 
 @router.post(
@@ -143,21 +158,21 @@ async def add_location(
         db, project_id, scripted_location_id, current_user, data
     )
     await db.commit()
-    return ScriptedLocationLocationResponse.model_validate(sll)
+    return _build_sll_response(sll)
 
 
 @router.delete(
-    "/{project_id}/scripted-locations/{scripted_location_id}/locations/{location_id}",
+    "/{project_id}/scripted-locations/{scripted_location_id}/locations/{project_location_id}",
     status_code=204,
 )
 async def remove_location(
     project_id: uuid.UUID,
     scripted_location_id: uuid.UUID,
-    location_id: uuid.UUID,
+    project_location_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     await remove_scripted_location_location(
-        db, project_id, scripted_location_id, location_id, current_user
+        db, project_id, scripted_location_id, project_location_id, current_user
     )
     await db.commit()

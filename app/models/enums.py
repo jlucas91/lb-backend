@@ -70,3 +70,9 @@ class ProjectRole(enum.StrEnum):
 class ScoutingStatus(enum.StrEnum):
     DRAFT = "draft"
     COMPLETE = "complete"
+
+
+class FileStatus(enum.StrEnum):
+    PENDING = "pending"
+    ACTIVE = "active"
+    ERROR = "error"

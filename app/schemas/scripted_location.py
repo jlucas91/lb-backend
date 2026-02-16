@@ -35,15 +35,38 @@ class ScriptedLocationResponse(BaseModel):
 
 
 class ScriptedLocationLocationCreate(BaseModel):
-    location_id: uuid.UUID
+    project_location_id: uuid.UUID
     notes: str | None = None
+
+
+class UserSummary(BaseModel):
+    id: uuid.UUID
+    display_name: str
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectLocationSummary(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    name: str | None = None
+    address: str
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    location_type: str | None = None
+    description: str | None = None
+
+    model_config = {"from_attributes": True}
 
 
 class ScriptedLocationLocationResponse(BaseModel):
-    scripted_location_id: uuid.UUID
-    location_id: uuid.UUID
-    added_by_id: uuid.UUID
+    project_location_id: uuid.UUID
+    added_by: UserSummary
     notes: str | None = None
     added_at: datetime | None = None
+    location: ProjectLocationSummary
 
     model_config = {"from_attributes": True}

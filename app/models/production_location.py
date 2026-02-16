@@ -14,7 +14,7 @@ class ProductionLocation(Base):
         ForeignKey("productions.id", ondelete="CASCADE"), primary_key=True
     )
     location_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("locations.id"), primary_key=True
+        ForeignKey("user_locations.id"), primary_key=True
     )
     added_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String(20), default="scouted")

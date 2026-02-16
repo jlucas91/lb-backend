@@ -7,86 +7,89 @@ from app.api.deps import get_current_user
 from app.controllers.file import (
     confirm_upload,
     delete_file,
-    generate_presign,
-    list_files,
+    get_file,
+    request_upload,
     update_file,
 )
-from app.controllers.location import get_location_for_user
 from app.core.database import get_db
+from app.core.storage import S3StorageService, get_storage
 from app.models.user import User
 from app.schemas.file import (
-    FileConfirm,
+    ConfirmUpload,
     FileResponse,
     FileUpdate,
-    PresignRequest,
-    PresignResponse,
+    UploadRequest,
+    UploadResponse,
 )
 
 router = APIRouter()
 
 
-@router.post("/{location_id}/files/presign", response_model=PresignResponse)
-async def presign(
-    location_id: uuid.UUID,
-    data: PresignRequest,
+@router.post("/request-upload", response_model=UploadResponse, status_code=201)
+async def request_upload_endpoint(
+    data: UploadRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> PresignResponse:
-    await get_location_for_user(db, location_id, current_user)
-    upload_url, storage_key = generate_presign(data.filename, data.content_type)
-    return PresignResponse(upload_url=upload_url, storage_key=storage_key)
+    storage: S3StorageService = Depends(get_storage),
+) -> UploadResponse:
+    file, upload_url = await request_upload(
+        db, storage, current_user.id, data.filename, data.content_type
+    )
+    await db.commit()
+    return UploadResponse(
+        file_id=file.id,
+        upload_url=upload_url,
+        storage_key=file.storage_key,
+    )
 
 
-@router.post(
-    "/{location_id}/files/confirm",
-    response_model=FileResponse,
-    status_code=201,
-)
-async def confirm(
-    location_id: uuid.UUID,
-    data: FileConfirm,
+@router.post("/{file_id}/confirm", response_model=FileResponse)
+async def confirm_upload_endpoint(
+    file_id: uuid.UUID,
+    data: ConfirmUpload,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> FileResponse:
-    await get_location_for_user(db, location_id, current_user)
-    file = await confirm_upload(db, location_id, data)
+    file = await confirm_upload(db, storage, current_user.id, file_id, data)
     await db.commit()
     return FileResponse.model_validate(file)
 
 
-@router.get("/{location_id}/files", response_model=list[FileResponse])
-async def list_location_files(
-    location_id: uuid.UUID,
-    file_type: str | None = None,
+@router.get("/{file_id}", response_model=FileResponse)
+async def get_file_endpoint(
+    file_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[FileResponse]:
-    await get_location_for_user(db, location_id, current_user)
-    files = await list_files(db, location_id, file_type=file_type)
-    return [FileResponse.model_validate(f) for f in files]
+    storage: S3StorageService = Depends(get_storage),
+) -> FileResponse:
+    file = await get_file(db, file_id, current_user.id)
+    download_url = await storage.generate_download_url(file.storage_key)
+    resp = FileResponse.model_validate(file)
+    resp.download_url = download_url
+    if file.thumbnail_key:
+        resp.thumbnail_url = await storage.generate_download_url(file.thumbnail_key)
+    return resp
 
 
-@router.patch("/{location_id}/files/{file_id}", response_model=FileResponse)
-async def update(
-    location_id: uuid.UUID,
+@router.patch("/{file_id}", response_model=FileResponse)
+async def update_file_endpoint(
     file_id: uuid.UUID,
     data: FileUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> FileResponse:
-    await get_location_for_user(db, location_id, current_user)
-    file = await update_file(db, file_id, location_id, data)
+    file = await update_file(db, file_id, current_user.id, data)
     await db.commit()
     return FileResponse.model_validate(file)
 
 
-@router.delete("/{location_id}/files/{file_id}", status_code=204)
-async def delete(
-    location_id: uuid.UUID,
+@router.delete("/{file_id}", status_code=204)
+async def delete_file_endpoint(
     file_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> None:
-    await get_location_for_user(db, location_id, current_user)
-    await delete_file(db, file_id, location_id)
+    await delete_file(db, storage, file_id, current_user.id)
     await db.commit()

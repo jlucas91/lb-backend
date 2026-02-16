@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.location import get_location_for_user
 from app.core.exceptions import forbidden, not_found
-from app.models.location import Location
+from app.models.location import UserLocation
 from app.models.scouting import Scouting
 from app.models.user import User
 from app.schemas.scouting import ScoutingCreate, ScoutingUpdate
@@ -93,8 +93,8 @@ async def delete_scouting(
     # Scout OR location owner can delete
     if scouting.scouted_by_id != user.id:
         result = await db.execute(
-            select(Location).where(
-                Location.id == location_id, Location.owner_id == user.id
+            select(UserLocation).where(
+                UserLocation.id == location_id, UserLocation.owner_id == user.id
             )
         )
         if result.scalar_one_or_none() is None:

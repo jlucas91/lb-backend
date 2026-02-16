@@ -16,7 +16,7 @@ async def _setup(
 
     # Create location
     loc_resp = await authenticated_client.post(
-        "/api/v1/locations", json={"name": "Test Spot"}
+        "/api/v1/locations", json={"address": "100 Test Spot Rd"}
     )
     loc_id = loc_resp.json()["id"]
 

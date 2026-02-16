@@ -1,15 +1,18 @@
 from app.core.database import Base
 from app.models.episode import Episode
-from app.models.file import File
+from app.models.file import File, Image
 from app.models.folder import Folder
-from app.models.location import Location
+from app.models.location import UserLocation
+from app.models.location_file import LocationFile
 from app.models.location_share import LocationShare
 from app.models.production import Production
 from app.models.production_location import ProductionLocation
 from app.models.production_member import ProductionMember
 from app.models.project import Project
+from app.models.project_location import ProjectLocation
 from app.models.project_member import ProjectMember
 from app.models.scouting import Scouting
+from app.models.scouting_file import ScoutingFile
 from app.models.scripted_location import ScriptedLocation
 from app.models.scripted_location_location import ScriptedLocationLocation
 from app.models.user import User
@@ -19,15 +22,19 @@ __all__ = [
     "Episode",
     "File",
     "Folder",
-    "Location",
+    "Image",
+    "LocationFile",
     "LocationShare",
     "Production",
     "ProductionLocation",
     "ProductionMember",
     "Project",
+    "ProjectLocation",
     "ProjectMember",
     "Scouting",
+    "ScoutingFile",
     "ScriptedLocation",
     "ScriptedLocationLocation",
     "User",
+    "UserLocation",
 ]

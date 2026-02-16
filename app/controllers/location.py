@@ -5,21 +5,18 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import forbidden, not_found
-from app.models.location import Location
+from app.models.location import UserLocation
 from app.models.location_share import LocationShare
 from app.models.production_location import ProductionLocation
 from app.models.production_member import ProductionMember
-from app.models.project_member import ProjectMember
-from app.models.scripted_location import ScriptedLocation
-from app.models.scripted_location_location import ScriptedLocationLocation
 from app.models.user import User
-from app.schemas.location import LocationCreate, LocationUpdate
+from app.schemas.location import UserLocationCreate, UserLocationUpdate
 
 
 async def create_location(
-    db: AsyncSession, owner: User, data: LocationCreate
-) -> Location:
-    loc = Location(
+    db: AsyncSession, owner: User, data: UserLocationCreate
+) -> UserLocation:
+    loc = UserLocation(
         owner_id=owner.id,
         name=data.name,
         address=data.address,
@@ -36,7 +33,7 @@ async def create_location(
     return loc
 
 
-def _accessible_locations_query(user_id: uuid.UUID) -> Select[tuple[Location]]:
+def _accessible_locations_query(user_id: uuid.UUID) -> Select[tuple[UserLocation]]:
     """Build a query for locations the user can read."""
     shared_ids = (
         select(LocationShare.location_id)
@@ -52,30 +49,19 @@ def _accessible_locations_query(user_id: uuid.UUID) -> Select[tuple[Location]]:
         .where(ProductionMember.user_id == user_id)
         .correlate(None)
     )
-    scripted_location_ids = (
-        select(ScriptedLocationLocation.location_id)
-        .join(
-            ScriptedLocation,
-            ScriptedLocationLocation.scripted_location_id == ScriptedLocation.id,
-        )
-        .join(ProjectMember, ScriptedLocation.project_id == ProjectMember.project_id)
-        .where(ProjectMember.user_id == user_id)
-        .correlate(None)
-    )
-    return select(Location).where(
+    return select(UserLocation).where(
         or_(
-            Location.owner_id == user_id,
-            Location.id.in_(shared_ids),
-            Location.id.in_(production_ids),
-            Location.id.in_(scripted_location_ids),
+            UserLocation.owner_id == user_id,
+            UserLocation.id.in_(shared_ids),
+            UserLocation.id.in_(production_ids),
         )
     )
 
 
 async def get_location_for_user(
     db: AsyncSession, location_id: uuid.UUID, user: User
-) -> Location:
-    query = _accessible_locations_query(user.id).where(Location.id == location_id)
+) -> UserLocation:
+    query = _accessible_locations_query(user.id).where(UserLocation.id == location_id)
     result = await db.execute(query)
     loc = result.scalar_one_or_none()
     if loc is None:
@@ -87,7 +73,9 @@ async def _can_write_location(
     db: AsyncSession, location_id: uuid.UUID, user_id: uuid.UUID
 ) -> bool:
     result = await db.execute(
-        select(Location).where(Location.id == location_id, Location.owner_id == user_id)
+        select(UserLocation).where(
+            UserLocation.id == location_id, UserLocation.owner_id == user_id
+        )
     )
     if result.scalar_one_or_none() is not None:
         return True
@@ -109,24 +97,24 @@ async def list_user_locations(
     q: str | None = None,
     page: int = 1,
     per_page: int = 20,
-) -> tuple[list[Location], int]:
+) -> tuple[list[UserLocation], int]:
     query = _accessible_locations_query(user.id)
     if location_type:
-        query = query.where(Location.location_type == location_type)
+        query = query.where(UserLocation.location_type == location_type)
     if q:
         pattern = f"%{q}%"
         query = query.where(
             or_(
-                Location.name.ilike(pattern),
-                Location.address.ilike(pattern),
-                Location.description.ilike(pattern),
+                UserLocation.name.ilike(pattern),
+                UserLocation.address.ilike(pattern),
+                UserLocation.description.ilike(pattern),
             )
         )
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
 
-    query = query.order_by(Location.created_at.desc())
+    query = query.order_by(UserLocation.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
     items = list(result.scalars().all())
@@ -137,8 +125,8 @@ async def update_location(
     db: AsyncSession,
     location_id: uuid.UUID,
     user: User,
-    data: LocationUpdate,
-) -> Location:
+    data: UserLocationUpdate,
+) -> UserLocation:
     loc = await get_location_for_user(db, location_id, user)
     if not await _can_write_location(db, location_id, user.id):
         raise forbidden("No write access to this location")
@@ -154,7 +142,9 @@ async def update_location(
 
 async def delete_location(db: AsyncSession, location_id: uuid.UUID, user: User) -> None:
     result = await db.execute(
-        select(Location).where(Location.id == location_id, Location.owner_id == user.id)
+        select(UserLocation).where(
+            UserLocation.id == location_id, UserLocation.owner_id == user.id
+        )
     )
     loc = result.scalar_one_or_none()
     if loc is None:

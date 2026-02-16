@@ -13,7 +13,7 @@ class LocationShare(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     location_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("locations.id", ondelete="CASCADE"), index=True
+        ForeignKey("user_locations.id", ondelete="CASCADE"), index=True
     )
     shared_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     shared_with_id: Mapped[uuid.UUID] = mapped_column(

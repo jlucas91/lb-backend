@@ -16,7 +16,7 @@ docker run --rm -v $(pwd):/app -w /app ghcr.io/astral-sh/uv:python3.13-bookworm-
 
 # Tests (requires DB running via docker compose)
 docker run --rm --network lb-backend_default \
-  -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/locationsbook \
+  -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/locationsbook_test \
   -e SECRET_KEY=test-secret-key \
   -v $(pwd):/app -w /app ghcr.io/astral-sh/uv:python3.13-bookworm-slim \
   uv run pytest -v

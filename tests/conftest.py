@@ -20,9 +20,27 @@ from app.models.user import User
 
 @pytest.fixture(scope="session", autouse=True)
 async def _create_tables() -> AsyncIterator[None]:
-    """Create all tables once per test session (for fresh CI databases)."""
-    engine = create_async_engine(get_settings().database_url)
+    """Recreate all tables once per test session to match current models."""
+    from sqlalchemy import text
+
+    db_url = get_settings().database_url
+
+    # Ensure the test database exists by connecting to the default 'postgres' db
+    admin_url = db_url.rsplit("/", 1)[0] + "/postgres"
+    admin_engine = create_async_engine(admin_url, isolation_level="AUTOCOMMIT")
+    async with admin_engine.connect() as conn:
+        result = await conn.execute(
+            text("SELECT 1 FROM pg_database WHERE datname = 'locationsbook_test'")
+        )
+        if not result.scalar():
+            await conn.execute(text("CREATE DATABASE locationsbook_test"))
+    await admin_engine.dispose()
+
+    engine = create_async_engine(db_url)
     async with engine.begin() as conn:
+        # Drop legacy tables that may have stale FK constraints
+        await conn.execute(text("DROP TABLE IF EXISTS files CASCADE"))
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield
     await engine.dispose()

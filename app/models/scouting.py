@@ -12,7 +12,7 @@ class Scouting(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     location_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("locations.id", ondelete="CASCADE"), index=True
+        ForeignKey("user_locations.id", ondelete="CASCADE"), index=True
     )
     scouted_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     notes: Mapped[str | None] = mapped_column(Text)

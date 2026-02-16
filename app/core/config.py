@@ -13,6 +13,13 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 30
 
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_region: str = "us-east-1"
+    s3_bucket: str = "locationsbook-dev"
+    s3_upload_expiry: int = 300
+    s3_download_expiry: int = 3600
+
     model_config = {"env_file": ".env"}
 
 

@@ -2,11 +2,13 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.controllers.project import require_manager_or_owner, require_member
 from app.core.exceptions import bad_request, conflict, not_found
 from app.models.episode import Episode
 from app.models.folder import Folder
+from app.models.project_location import ProjectLocation
 from app.models.scripted_location import ScriptedLocation
 from app.models.scripted_location_location import ScriptedLocationLocation
 from app.models.user import User
@@ -169,23 +171,44 @@ async def add_scripted_location_location(
     )
     if result.scalar_one_or_none() is None:
         raise not_found("Scripted location not found")
+    # Validate project_location belongs to this project
+    pl_result = await db.execute(
+        select(ProjectLocation).where(
+            ProjectLocation.id == data.project_location_id,
+            ProjectLocation.project_id == project_id,
+        )
+    )
+    if pl_result.scalar_one_or_none() is None:
+        raise not_found("Project location not found in this project")
     existing = await db.execute(
         select(ScriptedLocationLocation).where(
             ScriptedLocationLocation.scripted_location_id == scripted_location_id,
-            ScriptedLocationLocation.location_id == data.location_id,
+            ScriptedLocationLocation.project_location_id == data.project_location_id,
         )
     )
     if existing.scalar_one_or_none() is not None:
         raise conflict("Location already in this scripted location")
     sll = ScriptedLocationLocation(
         scripted_location_id=scripted_location_id,
-        location_id=data.location_id,
+        project_location_id=data.project_location_id,
         added_by_id=user.id,
         notes=data.notes,
     )
     db.add(sll)
     await db.flush()
-    return sll
+    # Re-fetch with relationships for response serialization
+    sll_result = await db.execute(
+        select(ScriptedLocationLocation)
+        .where(
+            ScriptedLocationLocation.scripted_location_id == scripted_location_id,
+            ScriptedLocationLocation.project_location_id == data.project_location_id,
+        )
+        .options(
+            selectinload(ScriptedLocationLocation.project_location),
+            selectinload(ScriptedLocationLocation.added_by),
+        )
+    )
+    return sll_result.scalar_one()
 
 
 async def list_scripted_location_locations(
@@ -204,8 +227,11 @@ async def list_scripted_location_locations(
     if sl_result.scalar_one_or_none() is None:
         raise not_found("Scripted location not found")
     result = await db.execute(
-        select(ScriptedLocationLocation).where(
-            ScriptedLocationLocation.scripted_location_id == scripted_location_id
+        select(ScriptedLocationLocation)
+        .where(ScriptedLocationLocation.scripted_location_id == scripted_location_id)
+        .options(
+            selectinload(ScriptedLocationLocation.project_location),
+            selectinload(ScriptedLocationLocation.added_by),
         )
     )
     return list(result.scalars().all())
@@ -215,7 +241,7 @@ async def remove_scripted_location_location(
     db: AsyncSession,
     project_id: uuid.UUID,
     scripted_location_id: uuid.UUID,
-    location_id: uuid.UUID,
+    project_location_id: uuid.UUID,
     user: User,
 ) -> None:
     await require_manager_or_owner(db, project_id, user.id)
@@ -230,7 +256,7 @@ async def remove_scripted_location_location(
     result = await db.execute(
         select(ScriptedLocationLocation).where(
             ScriptedLocationLocation.scripted_location_id == scripted_location_id,
-            ScriptedLocationLocation.location_id == location_id,
+            ScriptedLocationLocation.project_location_id == project_location_id,
         )
     )
     sll = result.scalar_one_or_none()

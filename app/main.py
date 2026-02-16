@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 
 from app.api.v1.router import router as v1_router
 from app.core.config import get_settings
@@ -22,6 +23,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(v1_router, prefix="/api/v1")
+
+    @app.get("/", response_class=PlainTextResponse)
+    async def root() -> str:
+        return "ok"
+
     return app
 
 

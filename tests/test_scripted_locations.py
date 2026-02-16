@@ -24,8 +24,11 @@ async def _create_folder(client: httpx.AsyncClient, project_id: str) -> str:
     return resp.json()["id"]
 
 
-async def _create_location(client: httpx.AsyncClient) -> str:
-    resp = await client.post("/api/v1/locations", json={"name": "Test Location"})
+async def _create_project_location(client: httpx.AsyncClient, project_id: str) -> str:
+    resp = await client.post(
+        f"/api/v1/projects/{project_id}/locations",
+        json={"address": "100 Test Location St"},
+    )
     return resp.json()["id"]
 
 
@@ -183,7 +186,7 @@ async def test_add_location_to_scripted_location(
     authenticated_client: httpx.AsyncClient,
 ) -> None:
     proj_id = await _create_project(authenticated_client)
-    loc_id = await _create_location(authenticated_client)
+    pl_id = await _create_project_location(authenticated_client, proj_id)
     sl_resp = await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations",
         json={"name": "INT. BAR"},
@@ -191,19 +194,25 @@ async def test_add_location_to_scripted_location(
     sl_id = sl_resp.json()["id"]
     resp = await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations/{sl_id}/locations",
-        json={"location_id": loc_id, "notes": "Great option"},
+        json={"project_location_id": pl_id, "notes": "Great option"},
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["location_id"] == loc_id
+    assert data["project_location_id"] == pl_id
     assert data["notes"] == "Great option"
+    # Nested location info
+    assert data["location"]["address"] == "100 Test Location St"
+    assert data["location"]["id"] == pl_id
+    # Nested user info
+    assert "display_name" in data["added_by"]
+    assert "id" in data["added_by"]
 
 
 async def test_list_scripted_location_locations(
     authenticated_client: httpx.AsyncClient,
 ) -> None:
     proj_id = await _create_project(authenticated_client)
-    loc_id = await _create_location(authenticated_client)
+    pl_id = await _create_project_location(authenticated_client, proj_id)
     sl_resp = await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations",
         json={"name": "INT. BAR"},
@@ -211,20 +220,23 @@ async def test_list_scripted_location_locations(
     sl_id = sl_resp.json()["id"]
     await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations/{sl_id}/locations",
-        json={"location_id": loc_id},
+        json={"project_location_id": pl_id},
     )
     resp = await authenticated_client.get(
         f"/api/v1/projects/{proj_id}/scripted-locations/{sl_id}/locations"
     )
     assert resp.status_code == 200
-    assert len(resp.json()) == 1
+    items = resp.json()
+    assert len(items) == 1
+    assert items[0]["location"]["address"] == "100 Test Location St"
+    assert "display_name" in items[0]["added_by"]
 
 
 async def test_remove_location_from_scripted_location(
     authenticated_client: httpx.AsyncClient,
 ) -> None:
     proj_id = await _create_project(authenticated_client)
-    loc_id = await _create_location(authenticated_client)
+    pl_id = await _create_project_location(authenticated_client, proj_id)
     sl_resp = await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations",
         json={"name": "INT. BAR"},
@@ -232,10 +244,10 @@ async def test_remove_location_from_scripted_location(
     sl_id = sl_resp.json()["id"]
     await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations/{sl_id}/locations",
-        json={"location_id": loc_id},
+        json={"project_location_id": pl_id},
     )
     resp = await authenticated_client.delete(
-        f"/api/v1/projects/{proj_id}/scripted-locations/{sl_id}/locations/{loc_id}"
+        f"/api/v1/projects/{proj_id}/scripted-locations/{sl_id}/locations/{pl_id}"
     )
     assert resp.status_code == 204
 
@@ -244,7 +256,7 @@ async def test_duplicate_location_in_scripted_location(
     authenticated_client: httpx.AsyncClient,
 ) -> None:
     proj_id = await _create_project(authenticated_client)
-    loc_id = await _create_location(authenticated_client)
+    pl_id = await _create_project_location(authenticated_client, proj_id)
     sl_resp = await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations",
         json={"name": "INT. BAR"},
@@ -252,10 +264,10 @@ async def test_duplicate_location_in_scripted_location(
     sl_id = sl_resp.json()["id"]
     await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations/{sl_id}/locations",
-        json={"location_id": loc_id},
+        json={"project_location_id": pl_id},
     )
     dup_resp = await authenticated_client.post(
         f"/api/v1/projects/{proj_id}/scripted-locations/{sl_id}/locations",
-        json={"location_id": loc_id},
+        json={"project_location_id": pl_id},
     )
     assert dup_resp.status_code == 409

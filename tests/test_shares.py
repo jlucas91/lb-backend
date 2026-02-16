@@ -28,7 +28,7 @@ async def test_share_location(
 ) -> None:
     other_id, _ = await _create_other_user(client)
     loc_resp = await authenticated_client.post(
-        "/api/v1/locations", json={"name": "Shared Loc"}
+        "/api/v1/locations", json={"address": "100 Shared St"}
     )
     loc_id = loc_resp.json()["id"]
     resp = await authenticated_client.post(
@@ -45,7 +45,7 @@ async def test_share_duplicate(
 ) -> None:
     other_id, _ = await _create_other_user(client)
     loc_resp = await authenticated_client.post(
-        "/api/v1/locations", json={"name": "Dup Share Loc"}
+        "/api/v1/locations", json={"address": "200 Dup Share Ave"}
     )
     loc_id = loc_resp.json()["id"]
     await authenticated_client.post(
@@ -65,7 +65,7 @@ async def test_list_shares(
 ) -> None:
     other_id, _ = await _create_other_user(client)
     loc_resp = await authenticated_client.post(
-        "/api/v1/locations", json={"name": "List Shares Loc"}
+        "/api/v1/locations", json={"address": "300 List Shares Blvd"}
     )
     loc_id = loc_resp.json()["id"]
     await authenticated_client.post(
@@ -83,7 +83,7 @@ async def test_revoke_share(
 ) -> None:
     other_id, _ = await _create_other_user(client)
     loc_resp = await authenticated_client.post(
-        "/api/v1/locations", json={"name": "Revoke Loc"}
+        "/api/v1/locations", json={"address": "400 Revoke Rd"}
     )
     loc_id = loc_resp.json()["id"]
     share_resp = await authenticated_client.post(
@@ -103,7 +103,7 @@ async def test_shared_with_me(
 ) -> None:
     other_id, other_headers = await _create_other_user(client)
     loc_resp = await authenticated_client.post(
-        "/api/v1/locations", json={"name": "Shared To Me"}
+        "/api/v1/locations", json={"address": "500 Shared To Me Ln"}
     )
     loc_id = loc_resp.json()["id"]
     await authenticated_client.post(
@@ -121,7 +121,7 @@ async def test_shared_user_can_read_location(
 ) -> None:
     other_id, other_headers = await _create_other_user(client)
     loc_resp = await authenticated_client.post(
-        "/api/v1/locations", json={"name": "Readable Loc"}
+        "/api/v1/locations", json={"address": "600 Readable Ave"}
     )
     loc_id = loc_resp.json()["id"]
     await authenticated_client.post(
@@ -130,4 +130,4 @@ async def test_shared_user_can_read_location(
     )
     resp = await client.get(f"/api/v1/locations/{loc_id}", headers=other_headers)
     assert resp.status_code == 200
-    assert resp.json()["name"] == "Readable Loc"
+    assert resp.json()["address"] == "600 Readable Ave"

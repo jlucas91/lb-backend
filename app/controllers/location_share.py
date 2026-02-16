@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import bad_request, conflict, not_found
-from app.models.location import Location
+from app.models.location import UserLocation
 from app.models.location_share import LocationShare
 from app.models.user import User
 from app.schemas.location_share import LocationShareCreate
@@ -12,9 +12,11 @@ from app.schemas.location_share import LocationShareCreate
 
 async def _require_owner(
     db: AsyncSession, location_id: uuid.UUID, user_id: uuid.UUID
-) -> Location:
+) -> UserLocation:
     result = await db.execute(
-        select(Location).where(Location.id == location_id, Location.owner_id == user_id)
+        select(UserLocation).where(
+            UserLocation.id == location_id, UserLocation.owner_id == user_id
+        )
     )
     loc = result.scalar_one_or_none()
     if loc is None:
