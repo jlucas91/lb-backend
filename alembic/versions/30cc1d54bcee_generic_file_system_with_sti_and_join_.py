@@ -20,6 +20,9 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Drop old join tables that depend on the old files table
+    op.drop_table("location_files")
+    op.drop_table("scouting_files")
     # Drop old files table (location_id/scouting_id coupled design)
     op.drop_table("files")
 

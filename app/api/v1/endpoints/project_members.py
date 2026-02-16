@@ -11,6 +11,7 @@ from app.controllers.project_member import (
     update_role,
 )
 from app.core.database import get_db
+from app.models.project_member import ProjectMember
 from app.models.user import User
 from app.schemas.project import (
     ProjectMemberCreate,
@@ -19,6 +20,17 @@ from app.schemas.project import (
 )
 
 router = APIRouter()
+
+
+def _member_response(m: ProjectMember) -> ProjectMemberResponse:
+    return ProjectMemberResponse(
+        project_id=m.project_id,
+        user_id=m.user_id,
+        display_name=m.user.display_name,
+        email=m.user.email,
+        role=m.role,
+        joined_at=m.joined_at,
+    )
 
 
 @router.get(
@@ -31,12 +43,11 @@ async def list_project_members(
     db: AsyncSession = Depends(get_db),
 ) -> list[ProjectMemberResponse]:
     members = await list_members(db, project_id, current_user)
-    return [ProjectMemberResponse.model_validate(m) for m in members]
+    return [_member_response(m) for m in members]
 
 
 @router.post(
     "/{project_id}/members",
-    response_model=ProjectMemberResponse,
     status_code=201,
 )
 async def add_project_member(
@@ -44,10 +55,10 @@ async def add_project_member(
     data: ProjectMemberCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> ProjectMemberResponse:
-    member = await add_member(db, project_id, current_user, data)
+) -> dict[str, str]:
+    await add_member(db, project_id, current_user, data)
     await db.commit()
-    return ProjectMemberResponse.model_validate(member)
+    return {"message": "Member added"}
 
 
 @router.patch(
@@ -63,7 +74,7 @@ async def update_member_role(
 ) -> ProjectMemberResponse:
     member = await update_role(db, project_id, user_id, current_user, data)
     await db.commit()
-    return ProjectMemberResponse.model_validate(member)
+    return _member_response(member)
 
 
 @router.delete("/{project_id}/members/{user_id}", status_code=204)

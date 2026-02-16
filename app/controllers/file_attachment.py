@@ -8,7 +8,26 @@ from app.controllers.file import get_active_file
 from app.core.exceptions import not_found
 from app.core.storage import S3StorageService
 from app.models.file import File
-from app.schemas.file import FileResponse
+from app.schemas.file import FeaturedImageResponse, FileResponse
+
+
+async def resolve_featured_image(
+    file: File | None, storage: S3StorageService
+) -> FeaturedImageResponse | None:
+    """Generate presigned URLs for a featured image file."""
+    if file is None:
+        return None
+    download_url = await storage.generate_download_url(file.storage_key)
+    thumbnail_url = None
+    if file.thumbnail_key:
+        thumbnail_url = await storage.generate_download_url(file.thumbnail_key)
+    return FeaturedImageResponse(
+        id=file.id,
+        download_url=download_url,
+        thumbnail_url=thumbnail_url,
+        width=file.width,
+        height=file.height,
+    )
 
 
 async def attach_file(

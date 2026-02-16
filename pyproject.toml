@@ -16,6 +16,7 @@ dependencies = [
     "email-validator",
     "python-multipart",
     "aioboto3",
+    "celery[sqs]",
 ]
 
 [dependency-groups]
@@ -27,6 +28,7 @@ dev = [
     "mypy",
     "types-pyjwt",
     "types-aiobotocore[s3]",
+    "celery-types",
 ]
 
 [tool.ruff]
@@ -52,6 +54,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "aioboto3.*"
 ignore_missing_imports = true
+
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.controllers.file_attachment import resolve_featured_image
 from app.controllers.scripted_location import (
     add_scripted_location_location,
     create_scripted_location,
@@ -15,6 +16,7 @@ from app.controllers.scripted_location import (
     update_scripted_location,
 )
 from app.core.database import get_db
+from app.core.storage import S3StorageService, get_storage
 from app.models.scripted_location_location import ScriptedLocationLocation
 from app.models.user import User
 from app.schemas.scripted_location import (
@@ -55,11 +57,17 @@ async def list_project_scripted_locations(
     folder_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> list[ScriptedLocationResponse]:
     items = await list_scripted_locations(
         db, project_id, current_user, episode_id=episode_id, folder_id=folder_id
     )
-    return [ScriptedLocationResponse.model_validate(sl) for sl in items]
+    responses: list[ScriptedLocationResponse] = []
+    for sl in items:
+        resp = ScriptedLocationResponse.model_validate(sl)
+        resp.featured_image = await resolve_featured_image(sl.featured_file, storage)
+        responses.append(resp)
+    return responses
 
 
 @router.post(
@@ -72,10 +80,13 @@ async def create(
     data: ScriptedLocationCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> ScriptedLocationResponse:
     sl = await create_scripted_location(db, project_id, current_user, data)
     await db.commit()
-    return ScriptedLocationResponse.model_validate(sl)
+    resp = ScriptedLocationResponse.model_validate(sl)
+    resp.featured_image = await resolve_featured_image(sl.featured_file, storage)
+    return resp
 
 
 @router.get(
@@ -87,9 +98,12 @@ async def get(
     scripted_location_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> ScriptedLocationResponse:
     sl = await get_scripted_location(db, project_id, scripted_location_id, current_user)
-    return ScriptedLocationResponse.model_validate(sl)
+    resp = ScriptedLocationResponse.model_validate(sl)
+    resp.featured_image = await resolve_featured_image(sl.featured_file, storage)
+    return resp
 
 
 @router.patch(
@@ -102,12 +116,15 @@ async def update(
     data: ScriptedLocationUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> ScriptedLocationResponse:
     sl = await update_scripted_location(
         db, project_id, scripted_location_id, current_user, data
     )
     await db.commit()
-    return ScriptedLocationResponse.model_validate(sl)
+    resp = ScriptedLocationResponse.model_validate(sl)
+    resp.featured_image = await resolve_featured_image(sl.featured_file, storage)
+    return resp
 
 
 @router.delete(

@@ -2,9 +2,10 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.controllers.production import require_manager_or_owner, require_member
-from app.core.exceptions import bad_request, conflict, forbidden, not_found
+from app.core.exceptions import bad_request, forbidden, not_found
 from app.models.production_member import ProductionMember
 from app.models.user import User
 from app.schemas.production import ProductionMemberCreate, ProductionMemberUpdate
@@ -15,24 +16,39 @@ async def add_member(
     production_id: uuid.UUID,
     current_user: User,
     data: ProductionMemberCreate,
-) -> ProductionMember:
+) -> ProductionMember | None:
     await require_manager_or_owner(db, production_id, current_user.id)
+    # Look up user by email
+    user_result = await db.execute(select(User).where(User.email == data.email))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        return None
+    # Check if already a member
     existing = await db.execute(
         select(ProductionMember).where(
             ProductionMember.production_id == production_id,
-            ProductionMember.user_id == data.user_id,
+            ProductionMember.user_id == user.id,
         )
     )
     if existing.scalar_one_or_none() is not None:
-        raise conflict("User is already a member")
+        return None
     member = ProductionMember(
         production_id=production_id,
-        user_id=data.user_id,
+        user_id=user.id,
         role=data.role.value,
     )
     db.add(member)
     await db.flush()
-    return member
+    # Re-fetch with user loaded
+    result = await db.execute(
+        select(ProductionMember)
+        .where(
+            ProductionMember.production_id == production_id,
+            ProductionMember.user_id == user.id,
+        )
+        .options(selectinload(ProductionMember.user))
+    )
+    return result.scalar_one()
 
 
 async def list_members(
@@ -40,7 +56,9 @@ async def list_members(
 ) -> list[ProductionMember]:
     await require_member(db, production_id, current_user.id)
     result = await db.execute(
-        select(ProductionMember).where(ProductionMember.production_id == production_id)
+        select(ProductionMember)
+        .where(ProductionMember.production_id == production_id)
+        .options(selectinload(ProductionMember.user))
     )
     return list(result.scalars().all())
 
@@ -68,7 +86,16 @@ async def update_role(
         raise bad_request("Cannot change your own role")
     target.role = data.role.value
     await db.flush()
-    return target
+    # Re-fetch with user loaded
+    result = await db.execute(
+        select(ProductionMember)
+        .where(
+            ProductionMember.production_id == production_id,
+            ProductionMember.user_id == user_id,
+        )
+        .options(selectinload(ProductionMember.user))
+    )
+    return result.scalar_one()
 
 
 async def remove_member(

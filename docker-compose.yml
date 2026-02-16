@@ -16,9 +16,32 @@ services:
       retries: 5
 
   app:
-    build: .
+    build:
+      context: .
+      target: dev
     ports:
       - "9000:9000"
+    volumes:
+      - ./app:/app/app
+      - ./tests:/app/tests
+      - ./alembic:/app/alembic
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/locationsbook
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-locationsbook-dev}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: >
+      celery -A app.core.celery_app:celery_app worker
+      --loglevel=info
+      --concurrency=2
+      -Q locationsbook-default
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/locationsbook
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}

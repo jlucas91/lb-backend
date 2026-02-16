@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from app.models.enums import ProjectRole, ProjectStatus, ProjectType
 
@@ -32,7 +32,7 @@ class ProjectResponse(BaseModel):
 
 
 class ProjectMemberCreate(BaseModel):
-    user_id: uuid.UUID
+    email: EmailStr
     role: ProjectRole = ProjectRole.MEMBER
 
 
@@ -43,6 +43,8 @@ class ProjectMemberUpdate(BaseModel):
 class ProjectMemberResponse(BaseModel):
     project_id: uuid.UUID
     user_id: uuid.UUID
+    display_name: str
+    email: str
     role: str
     joined_at: datetime | None = None
 

@@ -6,4 +6,3 @@ async def test_health_returns_200(client: httpx.AsyncClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert "database" in data

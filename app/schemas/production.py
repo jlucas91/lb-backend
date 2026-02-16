@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from app.models.enums import (
     ProductionLocationStatus,
@@ -33,7 +33,7 @@ class ProductionResponse(BaseModel):
 
 
 class ProductionMemberCreate(BaseModel):
-    user_id: uuid.UUID
+    email: EmailStr
     role: ProductionRole = ProductionRole.MEMBER
 
 
@@ -44,6 +44,8 @@ class ProductionMemberUpdate(BaseModel):
 class ProductionMemberResponse(BaseModel):
     production_id: uuid.UUID
     user_id: uuid.UUID
+    display_name: str
+    email: str
     role: str
     joined_at: datetime | None = None
 

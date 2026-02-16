@@ -13,10 +13,10 @@ async def test_add_member(
     prod_id = create_resp.json()["id"]
     resp = await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/members",
-        json={"user_id": str(other_user.id), "role": "member"},
+        json={"email": "other@example.com", "role": "member"},
     )
     assert resp.status_code == 201
-    assert resp.json()["role"] == "member"
+    assert resp.json()["message"] == "Member added"
 
 
 async def test_add_duplicate_member(
@@ -29,13 +29,49 @@ async def test_add_duplicate_member(
     prod_id = create_resp.json()["id"]
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/members",
-        json={"user_id": str(other_user.id)},
+        json={"email": "other@example.com"},
     )
     resp = await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/members",
-        json={"user_id": str(other_user.id)},
+        json={"email": "other@example.com"},
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 201
+
+
+async def test_add_nonexistent_email(
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    create_resp = await authenticated_client.post(
+        "/api/v1/productions", json={"name": "Ghost Film"}
+    )
+    prod_id = create_resp.json()["id"]
+    resp = await authenticated_client.post(
+        f"/api/v1/productions/{prod_id}/members",
+        json={"email": "nobody@example.com"},
+    )
+    assert resp.status_code == 201
+
+
+async def test_list_members_includes_user_info(
+    authenticated_client: httpx.AsyncClient,
+    other_user: User,
+) -> None:
+    create_resp = await authenticated_client.post(
+        "/api/v1/productions", json={"name": "Info Film"}
+    )
+    prod_id = create_resp.json()["id"]
+    await authenticated_client.post(
+        f"/api/v1/productions/{prod_id}/members",
+        json={"email": "other@example.com"},
+    )
+    resp = await authenticated_client.get(f"/api/v1/productions/{prod_id}/members")
+    assert resp.status_code == 200
+    members = resp.json()
+    emails = {m["email"] for m in members}
+    assert "other@example.com" in emails
+    for m in members:
+        assert "display_name" in m
+        assert "email" in m
 
 
 async def test_update_role(
@@ -48,7 +84,7 @@ async def test_update_role(
     prod_id = create_resp.json()["id"]
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/members",
-        json={"user_id": str(other_user.id)},
+        json={"email": "other@example.com"},
     )
     resp = await authenticated_client.patch(
         f"/api/v1/productions/{prod_id}/members/{other_user.id}",
@@ -68,7 +104,7 @@ async def test_remove_member(
     prod_id = create_resp.json()["id"]
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/members",
-        json={"user_id": str(other_user.id)},
+        json={"email": "other@example.com"},
     )
     resp = await authenticated_client.delete(
         f"/api/v1/productions/{prod_id}/members/{other_user.id}"
@@ -89,7 +125,7 @@ async def test_member_cannot_change_roles(
     prod_id = create_resp.json()["id"]
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/members",
-        json={"user_id": str(other_user.id)},
+        json={"email": "other@example.com"},
     )
     # Member tries to change owner's role
     resp = await client.patch(

@@ -11,6 +11,7 @@ from app.controllers.production_member import (
     update_role,
 )
 from app.core.database import get_db
+from app.models.production_member import ProductionMember
 from app.models.user import User
 from app.schemas.production import (
     ProductionMemberCreate,
@@ -19,6 +20,17 @@ from app.schemas.production import (
 )
 
 router = APIRouter()
+
+
+def _member_response(m: ProductionMember) -> ProductionMemberResponse:
+    return ProductionMemberResponse(
+        production_id=m.production_id,
+        user_id=m.user_id,
+        display_name=m.user.display_name,
+        email=m.user.email,
+        role=m.role,
+        joined_at=m.joined_at,
+    )
 
 
 @router.get(
@@ -31,12 +43,11 @@ async def list_production_members(
     db: AsyncSession = Depends(get_db),
 ) -> list[ProductionMemberResponse]:
     members = await list_members(db, production_id, current_user)
-    return [ProductionMemberResponse.model_validate(m) for m in members]
+    return [_member_response(m) for m in members]
 
 
 @router.post(
     "/{production_id}/members",
-    response_model=ProductionMemberResponse,
     status_code=201,
 )
 async def add_production_member(
@@ -44,10 +55,10 @@ async def add_production_member(
     data: ProductionMemberCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> ProductionMemberResponse:
-    member = await add_member(db, production_id, current_user, data)
+) -> dict[str, str]:
+    await add_member(db, production_id, current_user, data)
     await db.commit()
-    return ProductionMemberResponse.model_validate(member)
+    return {"message": "Member added"}
 
 
 @router.patch(
@@ -63,7 +74,7 @@ async def update_member_role(
 ) -> ProductionMemberResponse:
     member = await update_role(db, production_id, user_id, current_user, data)
     await db.commit()
-    return ProductionMemberResponse.model_validate(member)
+    return _member_response(member)
 
 
 @router.delete("/{production_id}/members/{user_id}", status_code=204)

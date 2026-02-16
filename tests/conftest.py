@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from unittest.mock import AsyncMock
 
 import httpx
@@ -16,6 +16,16 @@ from app.core.storage import ObjectMeta, S3StorageService, get_storage
 from app.main import app
 from app.models import Base
 from app.models.user import User
+
+
+@pytest.fixture(autouse=True)
+def _celery_eager_mode() -> Iterator[None]:
+    """Run Celery tasks synchronously inline during tests."""
+    from app.core.celery_app import celery_app
+
+    celery_app.conf.update(task_always_eager=True, task_eager_propagates=True)
+    yield
+    celery_app.conf.update(task_always_eager=False, task_eager_propagates=False)
 
 
 @pytest.fixture(scope="session", autouse=True)

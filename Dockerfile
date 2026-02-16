@@ -1,10 +1,27 @@
-FROM python:3.13-slim AS builder
+FROM python:3.13-slim AS base
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
+
+# Dev target — all dependencies including dev tools (ruff, mypy, pytest)
+FROM base AS dev
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project
+
+COPY . .
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+EXPOSE 9000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
+
+# Production builder — no dev deps
+FROM base AS builder
+
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 

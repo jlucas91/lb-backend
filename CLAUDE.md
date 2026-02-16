@@ -4,34 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-**No local uv** — all commands run inside Docker containers.
+**No local uv** — all commands run inside Docker via `docker compose`. The `app` service builds the `dev` target which includes dev tools (ruff, mypy, pytest). Source directories are bind-mounted so code reloading works automatically.
 
 ```bash
-# Lock file
-docker run --rm -v $(pwd):/app -w /app ghcr.io/astral-sh/uv:python3.13-bookworm-slim uv lock
+# Start services (DB + API with hot reload)
+docker compose up -d --build
 
 # Lint + format + typecheck (always auto-fix)
-docker run --rm -v $(pwd):/app -w /app ghcr.io/astral-sh/uv:python3.13-bookworm-slim \
-  sh -c "uv run ruff check --fix app/ tests/ && uv run ruff format app/ tests/ && uv run mypy app/"
+docker compose run --rm app sh -c "ruff check --fix app/ tests/ && ruff format app/ tests/ && mypy app/"
 
 # Tests (requires DB running via docker compose)
-docker run --rm --network lb-backend_default \
+docker compose run --rm \
   -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/locationsbook_test \
   -e SECRET_KEY=test-secret-key \
-  -v $(pwd):/app -w /app ghcr.io/astral-sh/uv:python3.13-bookworm-slim \
-  uv run pytest -v
+  app pytest -v
 
-# Single test
-# Append tests/test_auth.py::test_register (or any test path) to the pytest command above
+# Single test — append path to pytest command above, e.g.:
+# app pytest -v tests/test_auth.py::test_register
+
+# Lock file
+docker compose run --rm app uv lock
 
 # Alembic migration
-docker compose run --rm --user root -e PYTHONPATH=/app -v $(pwd)/alembic:/app/alembic app \
-  alembic revision --autogenerate -m "description"
-docker compose run --rm --user root -e PYTHONPATH=/app -v $(pwd)/alembic:/app/alembic app \
-  alembic upgrade head
-
-# Start services
-docker compose up -d --build
+docker compose run --rm app alembic revision --autogenerate -m "description"
+docker compose run --rm app alembic upgrade head
 ```
 
 ## Architecture

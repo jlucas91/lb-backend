@@ -2,9 +2,10 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.controllers.project import require_manager_or_owner, require_member
-from app.core.exceptions import bad_request, conflict, forbidden, not_found
+from app.core.exceptions import bad_request, forbidden, not_found
 from app.models.project_member import ProjectMember
 from app.models.user import User
 from app.schemas.project import ProjectMemberCreate, ProjectMemberUpdate
@@ -15,24 +16,39 @@ async def add_member(
     project_id: uuid.UUID,
     current_user: User,
     data: ProjectMemberCreate,
-) -> ProjectMember:
+) -> ProjectMember | None:
     await require_manager_or_owner(db, project_id, current_user.id)
+    # Look up user by email
+    user_result = await db.execute(select(User).where(User.email == data.email))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        return None
+    # Check if already a member
     existing = await db.execute(
         select(ProjectMember).where(
             ProjectMember.project_id == project_id,
-            ProjectMember.user_id == data.user_id,
+            ProjectMember.user_id == user.id,
         )
     )
     if existing.scalar_one_or_none() is not None:
-        raise conflict("User is already a member")
+        return None
     member = ProjectMember(
         project_id=project_id,
-        user_id=data.user_id,
+        user_id=user.id,
         role=data.role.value,
     )
     db.add(member)
     await db.flush()
-    return member
+    # Re-fetch with user loaded
+    result = await db.execute(
+        select(ProjectMember)
+        .where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user.id,
+        )
+        .options(selectinload(ProjectMember.user))
+    )
+    return result.scalar_one()
 
 
 async def list_members(
@@ -40,7 +56,9 @@ async def list_members(
 ) -> list[ProjectMember]:
     await require_member(db, project_id, current_user.id)
     result = await db.execute(
-        select(ProjectMember).where(ProjectMember.project_id == project_id)
+        select(ProjectMember)
+        .where(ProjectMember.project_id == project_id)
+        .options(selectinload(ProjectMember.user))
     )
     return list(result.scalars().all())
 
@@ -68,7 +86,16 @@ async def update_role(
         raise bad_request("Cannot change your own role")
     target.role = data.role.value
     await db.flush()
-    return target
+    # Re-fetch with user loaded
+    result = await db.execute(
+        select(ProjectMember)
+        .where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+        .options(selectinload(ProjectMember.user))
+    )
+    return result.scalar_one()
 
 
 async def remove_member(

@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.controllers.project import require_manager_or_owner, require_member
 from app.core.exceptions import bad_request, conflict, not_found
@@ -74,14 +74,18 @@ async def list_scripted_locations(
     folder_id: uuid.UUID | None = None,
 ) -> list[ScriptedLocation]:
     await require_member(db, project_id, user.id)
-    query = select(ScriptedLocation).where(ScriptedLocation.project_id == project_id)
+    query = (
+        select(ScriptedLocation)
+        .options(joinedload(ScriptedLocation.featured_file))
+        .where(ScriptedLocation.project_id == project_id)
+    )
     if episode_id is not None:
         query = query.where(ScriptedLocation.episode_id == episode_id)
     if folder_id is not None:
         query = query.where(ScriptedLocation.folder_id == folder_id)
     query = query.order_by(ScriptedLocation.sort_order, ScriptedLocation.created_at)
     result = await db.execute(query)
-    return list(result.scalars().all())
+    return list(result.unique().scalars().all())
 
 
 async def get_scripted_location(
@@ -92,12 +96,14 @@ async def get_scripted_location(
 ) -> ScriptedLocation:
     await require_member(db, project_id, user.id)
     result = await db.execute(
-        select(ScriptedLocation).where(
+        select(ScriptedLocation)
+        .options(joinedload(ScriptedLocation.featured_file))
+        .where(
             ScriptedLocation.id == scripted_location_id,
             ScriptedLocation.project_id == project_id,
         )
     )
-    sl = result.scalar_one_or_none()
+    sl = result.unique().scalar_one_or_none()
     if sl is None:
         raise not_found("Scripted location not found")
     return sl
@@ -112,12 +118,14 @@ async def update_scripted_location(
 ) -> ScriptedLocation:
     await require_manager_or_owner(db, project_id, user.id)
     result = await db.execute(
-        select(ScriptedLocation).where(
+        select(ScriptedLocation)
+        .options(joinedload(ScriptedLocation.featured_file))
+        .where(
             ScriptedLocation.id == scripted_location_id,
             ScriptedLocation.project_id == project_id,
         )
     )
-    sl = result.scalar_one_or_none()
+    sl = result.unique().scalar_one_or_none()
     if sl is None:
         raise not_found("Scripted location not found")
     update_data = data.model_dump(exclude_unset=True)

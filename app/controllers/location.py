@@ -3,9 +3,11 @@ import uuid
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from app.core.exceptions import forbidden, not_found
+from app.core.exceptions import bad_request, forbidden, not_found
 from app.models.location import UserLocation
+from app.models.location_file import LocationFile
 from app.models.location_share import LocationShare
 from app.models.production_location import ProductionLocation
 from app.models.production_member import ProductionMember
@@ -49,11 +51,15 @@ def _accessible_locations_query(user_id: uuid.UUID) -> Select[tuple[UserLocation
         .where(ProductionMember.user_id == user_id)
         .correlate(None)
     )
-    return select(UserLocation).where(
-        or_(
-            UserLocation.owner_id == user_id,
-            UserLocation.id.in_(shared_ids),
-            UserLocation.id.in_(production_ids),
+    return (
+        select(UserLocation)
+        .options(joinedload(UserLocation.featured_file))
+        .where(
+            or_(
+                UserLocation.owner_id == user_id,
+                UserLocation.id.in_(shared_ids),
+                UserLocation.id.in_(production_ids),
+            )
         )
     )
 
@@ -63,7 +69,7 @@ async def get_location_for_user(
 ) -> UserLocation:
     query = _accessible_locations_query(user.id).where(UserLocation.id == location_id)
     result = await db.execute(query)
-    loc = result.scalar_one_or_none()
+    loc = result.unique().scalar_one_or_none()
     if loc is None:
         raise not_found("Location not found")
     return loc
@@ -117,7 +123,7 @@ async def list_user_locations(
     query = query.order_by(UserLocation.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    items = list(result.scalars().all())
+    items = list(result.unique().scalars().all())
     return items, total
 
 
@@ -133,6 +139,20 @@ async def update_location(
     update_data = data.model_dump(exclude_unset=True)
     if "location_type" in update_data and update_data["location_type"] is not None:
         update_data["location_type"] = update_data["location_type"].value
+    # Validate featured_file_id is attached to this location
+    if (
+        "featured_file_id" in update_data
+        and update_data["featured_file_id"] is not None
+    ):
+        fid = update_data["featured_file_id"]
+        link_result = await db.execute(
+            select(LocationFile).where(
+                LocationFile.location_id == location_id,
+                LocationFile.file_id == fid,
+            )
+        )
+        if link_result.scalar_one_or_none() is None:
+            raise bad_request("File is not attached to this location")
     for key, value in update_data.items():
         setattr(loc, key, value)
     await db.flush()

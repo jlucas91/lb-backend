@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas.file import FeaturedImageResponse
+
 
 class ScriptedLocationCreate(BaseModel):
     name: str
@@ -18,6 +20,7 @@ class ScriptedLocationUpdate(BaseModel):
     episode_id: uuid.UUID | None = None
     folder_id: uuid.UUID | None = None
     sort_order: int | None = None
+    featured_file_id: uuid.UUID | None = None
 
 
 class ScriptedLocationResponse(BaseModel):
@@ -28,6 +31,7 @@ class ScriptedLocationResponse(BaseModel):
     name: str
     description: str | None = None
     sort_order: int
+    featured_image: FeaturedImageResponse | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

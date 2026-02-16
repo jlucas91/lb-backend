@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -9,6 +10,7 @@ from app.controllers.location import _can_write_location, get_location_for_user
 from app.core.database import get_db
 from app.core.exceptions import forbidden
 from app.core.storage import S3StorageService, get_storage
+from app.models.file import File
 from app.models.location_file import LocationFile
 from app.models.user import User
 from app.schemas.file import AttachFileRequest, FileResponse
@@ -28,10 +30,17 @@ async def attach_file_to_location(
     db: AsyncSession = Depends(get_db),
     storage: S3StorageService = Depends(get_storage),
 ) -> FileResponse:
-    await get_location_for_user(db, location_id, current_user)
+    location = await get_location_for_user(db, location_id, current_user)
     if not await _can_write_location(db, location_id, current_user.id):
         raise forbidden("No write access to this location")
     await attach_file(db, data.file_id, LocationFile, location_id=location_id)
+    # Auto-set featured image on first photo attach
+    if location.featured_file_id is None:
+        file_result = await db.execute(select(File).where(File.id == data.file_id))
+        file = file_result.scalar_one_or_none()
+        if file and file.file_category == "photo":
+            location.featured_file_id = data.file_id
+            await db.flush()
     await db.commit()
     # Return the file with download URL
     files = await list_entity_files(
@@ -63,8 +72,12 @@ async def detach_file_from_location(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    await get_location_for_user(db, location_id, current_user)
+    location = await get_location_for_user(db, location_id, current_user)
     if not await _can_write_location(db, location_id, current_user.id):
         raise forbidden("No write access to this location")
     await detach_file(db, file_id, LocationFile, LocationFile.location_id, location_id)
+    # Auto-clear featured image if the detached file was the featured one
+    if location.featured_file_id == file_id:
+        location.featured_file_id = None
+        await db.flush()
     await db.commit()

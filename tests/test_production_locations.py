@@ -26,7 +26,7 @@ async def _setup(
     # Add other user to production
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/members",
-        json={"user_id": str(other_user.id), "role": "member"},
+        json={"email": other_user.email, "role": "member"},
     )
 
     return prod_id, loc_id, other_auth_headers

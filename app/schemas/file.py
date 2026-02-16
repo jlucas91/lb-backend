@@ -50,6 +50,15 @@ class FileResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# Featured image (lightweight, for embedding in location responses)
+class FeaturedImageResponse(BaseModel):
+    id: uuid.UUID
+    thumbnail_url: str | None = None
+    download_url: str | None = None
+    width: int | None = None
+    height: int | None = None
+
+
 # Entity attachment
 class AttachFileRequest(BaseModel):
     file_id: uuid.UUID
