@@ -6,16 +6,17 @@ Create Date: 2026-02-15 20:55:49.600230
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "b5bf6597608c"
-down_revision: Union[str, None] = "509d6147e1a1"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "509d6147e1a1"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -28,9 +29,7 @@ def upgrade() -> None:
     )
 
     # Rename index
-    op.execute(
-        "ALTER INDEX ix_locations_owner_id RENAME TO ix_user_locations_owner_id"
-    )
+    op.execute("ALTER INDEX ix_locations_owner_id RENAME TO ix_user_locations_owner_id")
 
     # Rename FK constraint on user_locations itself
     op.execute(
@@ -134,9 +133,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["source_location_id"],
             ["user_locations.id"],
-            name=op.f(
-                "fk_project_locations_source_location_id_user_locations"
-            ),
+            name=op.f("fk_project_locations_source_location_id_user_locations"),
             ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_project_locations")),
@@ -176,9 +173,7 @@ def upgrade() -> None:
         ["scripted_location_id", "project_location_id"],
     )
     op.create_foreign_key(
-        op.f(
-            "fk_scripted_location_locations_project_location_id_project_locations"
-        ),
+        op.f("fk_scripted_location_locations_project_location_id_project_locations"),
         "scripted_location_locations",
         "project_locations",
         ["project_location_id"],
@@ -191,9 +186,7 @@ def downgrade() -> None:
     # Reverse scripted_location_locations changes
     op.execute("DELETE FROM scripted_location_locations")
     op.drop_constraint(
-        op.f(
-            "fk_scripted_location_locations_project_location_id_project_locations"
-        ),
+        op.f("fk_scripted_location_locations_project_location_id_project_locations"),
         "scripted_location_locations",
         type_="foreignkey",
     )
@@ -285,11 +278,8 @@ def downgrade() -> None:
         "ALTER TABLE user_locations RENAME CONSTRAINT "
         "fk_user_locations_owner_id_users TO fk_locations_owner_id_users"
     )
+    op.execute("ALTER INDEX ix_user_locations_owner_id RENAME TO ix_locations_owner_id")
     op.execute(
-        "ALTER INDEX ix_user_locations_owner_id RENAME TO ix_locations_owner_id"
-    )
-    op.execute(
-        "ALTER TABLE user_locations RENAME CONSTRAINT "
-        "pk_user_locations TO pk_locations"
+        "ALTER TABLE user_locations RENAME CONSTRAINT pk_user_locations TO pk_locations"
     )
     op.rename_table("user_locations", "locations")
