@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.controllers.file_attachment import resolve_featured_image
 from app.controllers.project_location import (
     compute_pages,
     copy_location_to_project,
@@ -14,6 +15,7 @@ from app.controllers.project_location import (
     update_project_location,
 )
 from app.core.database import get_db
+from app.core.storage import S3StorageService, get_storage
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.project_location import (
@@ -39,6 +41,7 @@ async def list_locations(
     per_page: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> PaginatedResponse[ProjectLocationListResponse]:
     items, total = await list_project_locations(
         db,
@@ -49,8 +52,13 @@ async def list_locations(
         page=page,
         per_page=per_page,
     )
+    responses: list[ProjectLocationListResponse] = []
+    for pl in items:
+        resp = ProjectLocationListResponse.model_validate(pl)
+        resp.featured_image = await resolve_featured_image(pl.featured_file, storage)
+        responses.append(resp)
     return PaginatedResponse(
-        items=[ProjectLocationListResponse.model_validate(i) for i in items],
+        items=responses,
         total=total,
         page=page,
         per_page=per_page,
@@ -99,9 +107,12 @@ async def get(
     location_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> ProjectLocationResponse:
     pl = await get_project_location(db, project_id, location_id, current_user)
-    return ProjectLocationResponse.model_validate(pl)
+    resp = ProjectLocationResponse.model_validate(pl)
+    resp.featured_image = await resolve_featured_image(pl.featured_file, storage)
+    return resp
 
 
 @router.patch(
@@ -114,10 +125,13 @@ async def update(
     data: ProjectLocationUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> ProjectLocationResponse:
     pl = await update_project_location(db, project_id, location_id, current_user, data)
     await db.commit()
-    return ProjectLocationResponse.model_validate(pl)
+    resp = ProjectLocationResponse.model_validate(pl)
+    resp.featured_image = await resolve_featured_image(pl.featured_file, storage)
+    return resp
 
 
 @router.delete("/{project_id}/locations/{location_id}", status_code=204)

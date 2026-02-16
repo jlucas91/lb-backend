@@ -3,10 +3,12 @@ import uuid
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.controllers.location import get_location_for_user
 from app.controllers.project import require_member
 from app.core.exceptions import not_found
+from app.models.location import UserLocation
 from app.models.project_location import ProjectLocation
 from app.models.user import User
 from app.schemas.project_location import (
@@ -22,9 +24,10 @@ async def create_project_location(
     data: ProjectLocationCreate,
 ) -> ProjectLocation:
     await require_member(db, project_id, user.id)
-    pl = ProjectLocation(
-        project_id=project_id,
-        added_by_id=user.id,
+    location_type_value = data.location_type.value if data.location_type else None
+    # Create a backing library location so files can be attached
+    library_loc = UserLocation(
+        owner_id=user.id,
         name=data.name,
         address=data.address,
         city=data.city,
@@ -32,7 +35,23 @@ async def create_project_location(
         country=data.country,
         latitude=data.latitude,
         longitude=data.longitude,
-        location_type=data.location_type.value if data.location_type else None,
+        location_type=location_type_value,
+        description=data.description,
+    )
+    db.add(library_loc)
+    await db.flush()
+    pl = ProjectLocation(
+        project_id=project_id,
+        added_by_id=user.id,
+        source_location_id=library_loc.id,
+        name=data.name,
+        address=data.address,
+        city=data.city,
+        state=data.state,
+        country=data.country,
+        latitude=data.latitude,
+        longitude=data.longitude,
+        location_type=location_type_value,
         description=data.description,
     )
     db.add(pl)
@@ -97,8 +116,9 @@ async def list_project_locations(
 
     query = query.order_by(ProjectLocation.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
+    query = query.options(joinedload(ProjectLocation.featured_file))
     result = await db.execute(query)
-    items = list(result.scalars().all())
+    items = list(result.unique().scalars().all())
     return items, total
 
 
@@ -110,12 +130,14 @@ async def get_project_location(
 ) -> ProjectLocation:
     await require_member(db, project_id, user.id)
     result = await db.execute(
-        select(ProjectLocation).where(
+        select(ProjectLocation)
+        .where(
             ProjectLocation.id == location_id,
             ProjectLocation.project_id == project_id,
         )
+        .options(joinedload(ProjectLocation.featured_file))
     )
-    pl = result.scalar_one_or_none()
+    pl = result.unique().scalar_one_or_none()
     if pl is None:
         raise not_found("Project location not found")
     return pl

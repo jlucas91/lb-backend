@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.models.enums import LocationType
+from app.schemas.file import FeaturedImageResponse
 
 
 class ProjectLocationCreate(BaseModel):
@@ -32,13 +33,13 @@ class ProjectLocationUpdate(BaseModel):
     longitude: float | None = None
     location_type: LocationType | None = None
     description: str | None = None
+    featured_file_id: uuid.UUID | None = None
 
 
 class ProjectLocationResponse(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
     added_by_id: uuid.UUID
-    source_location_id: uuid.UUID | None = None
     address: str
     name: str | None = None
     city: str | None = None
@@ -48,6 +49,7 @@ class ProjectLocationResponse(BaseModel):
     longitude: float | None = None
     location_type: str | None = None
     description: str | None = None
+    featured_image: FeaturedImageResponse | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -64,6 +66,7 @@ class ProjectLocationListResponse(BaseModel):
     state: str | None = None
     country: str | None = None
     location_type: str | None = None
+    featured_image: FeaturedImageResponse | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}

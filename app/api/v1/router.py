@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     production_locations,
     production_members,
     productions,
+    project_location_files,
     project_locations,
     project_members,
     projects,
@@ -44,6 +45,11 @@ router.include_router(
 )
 router.include_router(
     project_locations.router, prefix="/projects", tags=["project-locations"]
+)
+router.include_router(
+    project_location_files.router,
+    prefix="/projects",
+    tags=["project-location-files"],
 )
 router.include_router(episodes.router, prefix="/projects", tags=["episodes"])
 router.include_router(folders.router, prefix="/projects", tags=["folders"])

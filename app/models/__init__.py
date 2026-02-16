@@ -10,6 +10,7 @@ from app.models.production_location import ProductionLocation
 from app.models.production_member import ProductionMember
 from app.models.project import Project
 from app.models.project_location import ProjectLocation
+from app.models.project_location_file import ProjectLocationFile
 from app.models.project_member import ProjectMember
 from app.models.scouting import Scouting
 from app.models.scouting_file import ScoutingFile
@@ -30,6 +31,7 @@ __all__ = [
     "ProductionMember",
     "Project",
     "ProjectLocation",
+    "ProjectLocationFile",
     "ProjectMember",
     "Scouting",
     "ScoutingFile",

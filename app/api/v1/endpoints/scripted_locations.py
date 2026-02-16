@@ -32,15 +32,20 @@ from app.schemas.scripted_location import (
 router = APIRouter()
 
 
-def _build_sll_response(
+async def _build_sll_response(
     sll: ScriptedLocationLocation,
+    storage: S3StorageService,
 ) -> ScriptedLocationLocationResponse:
+    loc_summary = ProjectLocationSummary.model_validate(sll.project_location)
+    loc_summary.featured_image = await resolve_featured_image(
+        sll.project_location.featured_file, storage
+    )
     return ScriptedLocationLocationResponse(
         project_location_id=sll.project_location_id,
         added_by=UserSummary.model_validate(sll.added_by),
         notes=sll.notes,
         added_at=sll.added_at,
-        location=ProjectLocationSummary.model_validate(sll.project_location),
+        location=loc_summary,
     )
 
 
@@ -152,11 +157,12 @@ async def list_locations(
     scripted_location_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> list[ScriptedLocationLocationResponse]:
     items = await list_scripted_location_locations(
         db, project_id, scripted_location_id, current_user
     )
-    return [_build_sll_response(sll) for sll in items]
+    return [await _build_sll_response(sll, storage) for sll in items]
 
 
 @router.post(
@@ -170,12 +176,13 @@ async def add_location(
     data: ScriptedLocationLocationCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    storage: S3StorageService = Depends(get_storage),
 ) -> ScriptedLocationLocationResponse:
     sll = await add_scripted_location_location(
         db, project_id, scripted_location_id, current_user, data
     )
     await db.commit()
-    return _build_sll_response(sll)
+    return await _build_sll_response(sll, storage)
 
 
 @router.delete(

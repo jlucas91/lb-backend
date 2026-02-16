@@ -212,11 +212,13 @@ async def add_scripted_location_location(
             ScriptedLocationLocation.project_location_id == data.project_location_id,
         )
         .options(
-            selectinload(ScriptedLocationLocation.project_location),
+            selectinload(ScriptedLocationLocation.project_location).joinedload(
+                ProjectLocation.featured_file
+            ),
             selectinload(ScriptedLocationLocation.added_by),
         )
     )
-    return sll_result.scalar_one()
+    return sll_result.unique().scalar_one()
 
 
 async def list_scripted_location_locations(
@@ -238,11 +240,13 @@ async def list_scripted_location_locations(
         select(ScriptedLocationLocation)
         .where(ScriptedLocationLocation.scripted_location_id == scripted_location_id)
         .options(
-            selectinload(ScriptedLocationLocation.project_location),
+            selectinload(ScriptedLocationLocation.project_location).joinedload(
+                ProjectLocation.featured_file
+            ),
             selectinload(ScriptedLocationLocation.added_by),
         )
     )
-    return list(result.scalars().all())
+    return list(result.unique().scalars().all())
 
 
 async def remove_scripted_location_location(

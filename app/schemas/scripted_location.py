@@ -62,6 +62,7 @@ class ProjectLocationSummary(BaseModel):
     longitude: float | None = None
     location_type: str | None = None
     description: str | None = None
+    featured_image: FeaturedImageResponse | None = None
 
     model_config = {"from_attributes": True}
 
