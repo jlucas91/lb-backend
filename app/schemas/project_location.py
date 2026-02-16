@@ -40,7 +40,6 @@ class ProjectLocationResponse(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
     added_by_id: uuid.UUID
-    source_location_id: uuid.UUID | None = None
     address: str
     name: str | None = None
     city: str | None = None

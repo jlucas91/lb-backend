@@ -14,7 +14,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY . .
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app"
 
 EXPOSE 9000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
@@ -38,7 +39,8 @@ COPY --from=builder /app/scripts /app/scripts
 COPY --from=builder /app/alembic /app/alembic
 COPY --from=builder /app/alembic.ini /app/alembic.ini
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app"
 
 USER app
 

@@ -50,7 +50,7 @@ async def test_create_project_location(
     assert data["city"] == "Brooklyn"
     assert data["location_type"] == "industrial"
     assert data["project_id"] == proj_id
-    assert data["source_location_id"] is not None
+    assert "source_location_id" not in data
 
 
 # --- Copy ---
@@ -69,7 +69,7 @@ async def test_copy_user_location_to_project(
     data = resp.json()
     assert data["address"] == "100 User Location Blvd, Los Angeles, CA"
     assert data["city"] == "Los Angeles"
-    assert data["source_location_id"] == loc_id
+    assert "source_location_id" not in data
     assert data["project_id"] == proj_id
 
 
