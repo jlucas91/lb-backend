@@ -1,18 +1,10 @@
-name: Deploy
+name: CI
 
 on:
   push:
     branches: [main]
 
-concurrency:
-  group: deploy-main
-  cancel-in-progress: false
-
-env:
-  AWS_REGION: us-east-1
-
 permissions:
-  id-token: write
   contents: read
 
 jobs:
@@ -56,117 +48,3 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/locationsbook_test
           SECRET_KEY: test-secret-key
         run: uv run pytest -v
-
-  deploy:
-    needs: lint-and-test
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push Docker image
-        run: |
-          IMAGE="${{ secrets.ECR_REPO_URI }}:${{ github.sha }}"
-          docker build -t "$IMAGE" -t "${{ secrets.ECR_REPO_URI }}:latest" .
-          docker push "$IMAGE"
-          docker push "${{ secrets.ECR_REPO_URI }}:latest"
-          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-
-      - name: Run Alembic migration
-        run: |
-          # Get current migrate task def, update image, register new revision
-          TASK_DEF=$(aws ecs describe-task-definition \
-            --task-definition "${{ secrets.ECS_MIGRATE_TASK_FAMILY }}" \
-            --query 'taskDefinition')
-
-          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq \
-            --arg IMAGE "$IMAGE" \
-            '.containerDefinitions[0].image = $IMAGE |
-             del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
-                 .compatibilities, .registeredAt, .registeredBy)')
-
-          TASK_DEF_ARN=$(aws ecs register-task-definition \
-            --cli-input-json "$NEW_TASK_DEF" \
-            --query 'taskDefinition.taskDefinitionArn' --output text)
-
-          # Run migration task
-          TASK_ARN=$(aws ecs run-task \
-            --cluster "${{ secrets.ECS_CLUSTER_NAME }}" \
-            --task-definition "$TASK_DEF_ARN" \
-            --launch-type FARGATE \
-            --network-configuration '{
-              "awsvpcConfiguration": {
-                "subnets": ${{ secrets.PRIVATE_SUBNET_IDS }},
-                "securityGroups": ["${{ secrets.ECS_SG_ID }}"]
-              }
-            }' \
-            --query 'tasks[0].taskArn' --output text)
-
-          echo "Migration task: ${TASK_ARN}"
-          aws ecs wait tasks-stopped \
-            --cluster "${{ secrets.ECS_CLUSTER_NAME }}" \
-            --tasks "$TASK_ARN"
-
-          EXIT_CODE=$(aws ecs describe-tasks \
-            --cluster "${{ secrets.ECS_CLUSTER_NAME }}" \
-            --tasks "$TASK_ARN" \
-            --query 'tasks[0].containers[0].exitCode' --output text)
-
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "::error::Migration failed with exit code ${EXIT_CODE}"
-            TASK_ID=$(echo "$TASK_ARN" | awk -F'/' '{print $NF}')
-            aws logs get-log-events \
-              --log-group-name "/ecs/locationsbook-migrate" \
-              --log-stream-name "migrate/migrate/${TASK_ID}" \
-              --query 'events[].message' --output text 2>/dev/null || true
-            exit 1
-          fi
-          echo "Migration completed successfully."
-
-      - name: Deploy to ECS
-        run: |
-          # Get current app task def, update image, register new revision
-          TASK_DEF=$(aws ecs describe-task-definition \
-            --task-definition "${{ secrets.ECS_APP_TASK_FAMILY }}" \
-            --query 'taskDefinition')
-
-          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq \
-            --arg IMAGE "$IMAGE" \
-            '.containerDefinitions[0].image = $IMAGE |
-             del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
-                 .compatibilities, .registeredAt, .registeredBy)')
-
-          TASK_DEF_ARN=$(aws ecs register-task-definition \
-            --cli-input-json "$NEW_TASK_DEF" \
-            --query 'taskDefinition.taskDefinitionArn' --output text)
-
-          aws ecs update-service \
-            --cluster "${{ secrets.ECS_CLUSTER_NAME }}" \
-            --service "${{ secrets.ECS_SERVICE_NAME }}" \
-            --task-definition "$TASK_DEF_ARN"
-
-          echo "Waiting for service to stabilize..."
-          aws ecs wait services-stable \
-            --cluster "${{ secrets.ECS_CLUSTER_NAME }}" \
-            --services "${{ secrets.ECS_SERVICE_NAME }}"
-
-      - name: Verify health check
-        run: |
-          RESPONSE=$(curl -sf "${{ secrets.ALB_URL }}/api/v1/health" || true)
-          echo "Health check response: ${RESPONSE}"
-          if echo "$RESPONSE" | grep -q '"status":"healthy"'; then
-            echo "Health check passed."
-          else
-            echo "::error::Health check failed: ${RESPONSE}"
-            exit 1
-          fi
