@@ -11,6 +11,7 @@ http:
   # Requests to this path will be forwarded to your service.
   # To match all requests you can use the "/" path.
   path: '/'
+  alias: api.locationsbook.com
   healthcheck: '/api/v1/health'
 
 # Configuration for your containers and service.
