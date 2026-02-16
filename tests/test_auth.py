@@ -1,7 +1,9 @@
 import httpx
 
+from app.models.user import User
 
-async def test_register(client: httpx.AsyncClient) -> None:
+
+async def test_register_endpoint_removed(client: httpx.AsyncClient) -> None:
     resp = await client.post(
         "/api/v1/auth/register",
         json={
@@ -10,48 +12,13 @@ async def test_register(client: httpx.AsyncClient) -> None:
             "password": "secret123",
         },
     )
-    assert resp.status_code == 201
-    data = resp.json()
-    assert data["email"] == "new@example.com"
-    assert data["display_name"] == "New User"
-    assert "id" in data
+    assert resp.status_code == 404
 
 
-async def test_register_duplicate_email(
-    authenticated_client: httpx.AsyncClient,
-    client: httpx.AsyncClient,
-) -> None:
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "dup@example.com",
-            "display_name": "First",
-            "password": "secret123",
-        },
-    )
-    resp = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "dup@example.com",
-            "display_name": "Second",
-            "password": "secret456",
-        },
-    )
-    assert resp.status_code == 409
-
-
-async def test_login(client: httpx.AsyncClient) -> None:
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "login@example.com",
-            "display_name": "Login User",
-            "password": "mypassword",
-        },
-    )
+async def test_login(client: httpx.AsyncClient, test_user: User) -> None:
     resp = await client.post(
         "/api/v1/auth/login",
-        data={"username": "login@example.com", "password": "mypassword"},
+        json={"email": "test@example.com", "password": "testpass123"},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -59,18 +26,10 @@ async def test_login(client: httpx.AsyncClient) -> None:
     assert data["token_type"] == "bearer"
 
 
-async def test_login_wrong_password(client: httpx.AsyncClient) -> None:
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "badpass@example.com",
-            "display_name": "Bad",
-            "password": "correct",
-        },
-    )
+async def test_login_wrong_password(client: httpx.AsyncClient, test_user: User) -> None:
     resp = await client.post(
         "/api/v1/auth/login",
-        data={"username": "badpass@example.com", "password": "wrong"},
+        json={"email": "test@example.com", "password": "wrongpass"},
     )
     assert resp.status_code == 401
 
@@ -88,3 +47,32 @@ async def test_update_me(authenticated_client: httpx.AsyncClient) -> None:
     )
     assert resp.status_code == 200
     assert resp.json()["display_name"] == "Updated Name"
+
+
+async def test_update_password_requires_current(
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    resp = await authenticated_client.patch(
+        "/api/v1/auth/me", json={"password": "newpassword123"}
+    )
+    assert resp.status_code == 400
+
+
+async def test_update_password_wrong_current(
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    resp = await authenticated_client.patch(
+        "/api/v1/auth/me",
+        json={"password": "newpassword123", "current_password": "wrongpassword"},
+    )
+    assert resp.status_code == 401
+
+
+async def test_update_password_success(
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    resp = await authenticated_client.patch(
+        "/api/v1/auth/me",
+        json={"password": "newpassword123", "current_password": "testpass123"},
+    )
+    assert resp.status_code == 200

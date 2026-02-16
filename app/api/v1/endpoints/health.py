@@ -9,10 +9,5 @@ router = APIRouter()
 
 
 @router.get("", response_model=HealthResponse)
-async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
-    try:
-        await db.execute(text("SELECT 1"))
-        database_status = "healthy"
-    except Exception:
-        database_status = "unhealthy"
-    return HealthResponse(status="healthy", database=database_status)
+async def health_check() -> HealthResponse:
+    return HealthResponse(status="healthy")

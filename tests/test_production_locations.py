@@ -1,12 +1,15 @@
 import httpx
 
+from app.models.user import User
+
 
 async def _setup(
-    client: httpx.AsyncClient,
     authenticated_client: httpx.AsyncClient,
-) -> tuple[str, str, str, dict[str, str]]:
-    """Create a production, a location, and a second user as member.
-    Returns (production_id, location_id, other_user_id, other_headers).
+    other_user: User,
+    other_auth_headers: dict[str, str],
+) -> tuple[str, str, dict[str, str]]:
+    """Create a production, a location, and add other_user as member.
+    Returns (production_id, location_id, other_headers).
     """
     # Create production
     prod_resp = await authenticated_client.post(
@@ -20,38 +23,23 @@ async def _setup(
     )
     loc_id = loc_resp.json()["id"]
 
-    # Create another user
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "plmember@example.com",
-            "display_name": "PL Member",
-            "password": "pass123",
-        },
-    )
-    login_resp = await client.post(
-        "/api/v1/auth/login",
-        data={"username": "plmember@example.com", "password": "pass123"},
-    )
-    token = login_resp.json()["access_token"]
-    other_headers = {"Authorization": f"Bearer {token}"}
-    me_resp = await client.get("/api/v1/auth/me", headers=other_headers)
-    other_user_id = me_resp.json()["id"]
-
     # Add other user to production
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/members",
-        json={"user_id": other_user_id, "role": "member"},
+        json={"user_id": str(other_user.id), "role": "member"},
     )
 
-    return prod_id, loc_id, other_user_id, other_headers
+    return prod_id, loc_id, other_auth_headers
 
 
 async def test_add_location_to_production(
     authenticated_client: httpx.AsyncClient,
-    client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
-    prod_id, loc_id, _, _ = await _setup(client, authenticated_client)
+    prod_id, loc_id, _ = await _setup(
+        authenticated_client, other_user, other_auth_headers
+    )
     resp = await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/locations",
         json={"location_id": loc_id},
@@ -62,9 +50,12 @@ async def test_add_location_to_production(
 
 async def test_list_production_locations(
     authenticated_client: httpx.AsyncClient,
-    client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
-    prod_id, loc_id, _, _ = await _setup(client, authenticated_client)
+    prod_id, loc_id, _ = await _setup(
+        authenticated_client, other_user, other_auth_headers
+    )
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/locations",
         json={"location_id": loc_id},
@@ -76,9 +67,12 @@ async def test_list_production_locations(
 
 async def test_update_production_location_status(
     authenticated_client: httpx.AsyncClient,
-    client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
-    prod_id, loc_id, _, _ = await _setup(client, authenticated_client)
+    prod_id, loc_id, _ = await _setup(
+        authenticated_client, other_user, other_auth_headers
+    )
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/locations",
         json={"location_id": loc_id},
@@ -93,9 +87,12 @@ async def test_update_production_location_status(
 
 async def test_remove_production_location(
     authenticated_client: httpx.AsyncClient,
-    client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
-    prod_id, loc_id, _, _ = await _setup(client, authenticated_client)
+    prod_id, loc_id, _ = await _setup(
+        authenticated_client, other_user, other_auth_headers
+    )
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/locations",
         json={"location_id": loc_id},
@@ -109,8 +106,12 @@ async def test_remove_production_location(
 async def test_member_cannot_update_status(
     authenticated_client: httpx.AsyncClient,
     client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
-    prod_id, loc_id, _, other_headers = await _setup(client, authenticated_client)
+    prod_id, loc_id, other_hdrs = await _setup(
+        authenticated_client, other_user, other_auth_headers
+    )
     await authenticated_client.post(
         f"/api/v1/productions/{prod_id}/locations",
         json={"location_id": loc_id},
@@ -118,6 +119,6 @@ async def test_member_cannot_update_status(
     resp = await client.patch(
         f"/api/v1/productions/{prod_id}/locations/{loc_id}",
         json={"status": "approved"},
-        headers=other_headers,
+        headers=other_hdrs,
     )
     assert resp.status_code == 403

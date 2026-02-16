@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import conflict, unauthorized
+from app.core.exceptions import bad_request, conflict, unauthorized
 from app.core.security import hash_password, verify_password
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
@@ -33,6 +33,10 @@ async def update_user(db: AsyncSession, user: User, data: UserUpdate) -> User:
     if data.display_name is not None:
         user.display_name = data.display_name
     if data.password is not None:
+        if data.current_password is None:
+            raise bad_request("current_password is required to change password")
+        if not verify_password(data.current_password, user.password_hash):
+            raise unauthorized("Current password is incorrect")
         user.password_hash = hash_password(data.password)
     await db.flush()
     await db.refresh(user)

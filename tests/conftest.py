@@ -128,3 +128,22 @@ async def authenticated_client(
         transport=transport, base_url="http://test", headers=auth_headers
     ) as c:
         yield c
+
+
+@pytest.fixture
+async def other_user(db_session: AsyncSession) -> User:
+    user = User(
+        id=uuid.uuid4(),
+        email="other@example.com",
+        display_name="Other User",
+        password_hash=hash_password("otherpass123"),
+    )
+    db_session.add(user)
+    await db_session.flush()
+    return user
+
+
+@pytest.fixture
+def other_auth_headers(other_user: User) -> dict[str, str]:
+    token = create_access_token(str(other_user.id))
+    return {"Authorization": f"Bearer {token}"}

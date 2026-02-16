@@ -2,6 +2,8 @@ import uuid
 
 import httpx
 
+from app.models.user import User
+
 
 async def _create_project(client: httpx.AsyncClient) -> str:
     resp = await client.post(
@@ -247,6 +249,8 @@ async def test_delete_project_location(
 async def test_non_member_cannot_access_project_locations(
     authenticated_client: httpx.AsyncClient,
     client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
     """Non-member gets 404 for project locations."""
     proj_id = await _create_project(authenticated_client)
@@ -254,23 +258,8 @@ async def test_non_member_cannot_access_project_locations(
         f"/api/v1/projects/{proj_id}/locations",
         json={"address": "Secret Location Rd"},
     )
-    # Register another user
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "other@example.com",
-            "password": "otherpass123",
-            "display_name": "Other",
-        },
-    )
-    login_resp = await client.post(
-        "/api/v1/auth/login",
-        json={"email": "other@example.com", "password": "otherpass123"},
-    )
-    other_token = login_resp.json()["access_token"]
-    other_headers = {"Authorization": f"Bearer {other_token}"}
     resp = await client.get(
         f"/api/v1/projects/{proj_id}/locations",
-        headers=other_headers,
+        headers=other_auth_headers,
     )
     assert resp.status_code == 404

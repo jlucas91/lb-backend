@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -21,6 +22,19 @@ class Settings(BaseSettings):
     s3_download_expiry: int = 3600
 
     model_config = {"env_file": ".env"}
+
+    @model_validator(mode="after")
+    def _reject_default_secret_key(self) -> "Settings":
+        if (
+            self.app_env != "development"
+            and self.secret_key == "change-me-in-production"
+        ):
+            msg = (
+                "SECRET_KEY must be set to a strong random value"
+                " in non-development environments"
+            )
+            raise ValueError(msg)
+        return self
 
 
 @lru_cache

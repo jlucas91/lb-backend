@@ -2,6 +2,8 @@ import uuid
 
 import httpx
 
+from app.models.user import User
+
 
 async def test_request_upload(authenticated_client: httpx.AsyncClient) -> None:
     resp = await authenticated_client.post(
@@ -148,6 +150,8 @@ async def test_confirm_nonexistent(authenticated_client: httpx.AsyncClient) -> N
 async def test_cannot_confirm_others_file(
     authenticated_client: httpx.AsyncClient,
     client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
     # Create file as test user
     req_resp = await authenticated_client.post(
@@ -156,26 +160,10 @@ async def test_cannot_confirm_others_file(
     )
     file_id = req_resp.json()["file_id"]
 
-    # Register another user
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "other@example.com",
-            "password": "otherpass123",
-            "display_name": "Other User",
-        },
-    )
-    login_resp = await client.post(
-        "/api/v1/auth/login",
-        json={"email": "other@example.com", "password": "otherpass123"},
-    )
-    token = login_resp.json()["access_token"]
-    other_headers = {"Authorization": f"Bearer {token}"}
-
     # Other user tries to confirm — gets 404
     resp = await client.post(
         f"/api/v1/files/{file_id}/confirm",
         json={},
-        headers=other_headers,
+        headers=other_auth_headers,
     )
     assert resp.status_code == 404

@@ -2,6 +2,8 @@ import uuid
 
 import httpx
 
+from app.models.user import User
+
 
 async def _create_location(client: httpx.AsyncClient) -> str:
     resp = await client.post("/api/v1/locations", json={"address": "100 Scout Ln"})
@@ -119,6 +121,8 @@ async def test_scouting_not_found(authenticated_client: httpx.AsyncClient) -> No
 async def test_update_scouting_by_non_scout_forbidden(
     authenticated_client: httpx.AsyncClient,
     client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
     """A second user with read access cannot update a scouting they didn't create."""
     loc_id = await _create_location(authenticated_client)
@@ -127,22 +131,6 @@ async def test_update_scouting_by_non_scout_forbidden(
         json={"scouted_at": "2026-02-15T10:00:00Z"},
     )
     scouting_id = create_resp.json()["id"]
-
-    # Register a second user
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "other@example.com",
-            "password": "otherpass123",
-            "display_name": "Other User",
-        },
-    )
-    login_resp = await client.post(
-        "/api/v1/auth/login",
-        json={"email": "other@example.com", "password": "otherpass123"},
-    )
-    token = login_resp.json()["access_token"]
-    other_headers = {"Authorization": f"Bearer {token}"}
 
     # Share the location with the other user for read access
     await authenticated_client.post(
@@ -155,6 +143,6 @@ async def test_update_scouting_by_non_scout_forbidden(
     resp = await client.patch(
         f"/api/v1/locations/{loc_id}/scoutings/{scouting_id}",
         json={"notes": "Hacked notes"},
-        headers=other_headers,
+        headers=other_auth_headers,
     )
     assert resp.status_code in (403, 404)

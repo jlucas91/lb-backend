@@ -1,5 +1,7 @@
 import httpx
 
+from app.models.user import User
+
 
 async def test_create_project(
     authenticated_client: httpx.AsyncClient,
@@ -89,26 +91,13 @@ async def test_auto_owner_membership(
 async def test_non_member_cannot_access(
     client: httpx.AsyncClient,
     authenticated_client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "other@example.com",
-            "display_name": "Other",
-            "password": "pass123",
-        },
-    )
-    login_resp = await client.post(
-        "/api/v1/auth/login",
-        data={"username": "other@example.com", "password": "pass123"},
-    )
-    other_token = login_resp.json()["access_token"]
-    other_headers = {"Authorization": f"Bearer {other_token}"}
-
     create_resp = await authenticated_client.post(
         "/api/v1/projects", json={"name": "Private Film", "project_type": "movie"}
     )
     proj_id = create_resp.json()["id"]
 
-    resp = await client.get(f"/api/v1/projects/{proj_id}", headers=other_headers)
+    resp = await client.get(f"/api/v1/projects/{proj_id}", headers=other_auth_headers)
     assert resp.status_code == 404

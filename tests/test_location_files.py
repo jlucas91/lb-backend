@@ -1,5 +1,7 @@
 import httpx
 
+from app.models.user import User
+
 
 async def _create_location(client: httpx.AsyncClient) -> str:
     resp = await client.post("/api/v1/locations", json={"address": "100 File Test Rd"})
@@ -102,29 +104,15 @@ async def test_attach_requires_active_file(
 async def test_list_requires_read_access(
     authenticated_client: httpx.AsyncClient,
     client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
     loc_id = await _create_location(authenticated_client)
-
-    # Register another user
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "other@example.com",
-            "password": "otherpass123",
-            "display_name": "Other User",
-        },
-    )
-    login_resp = await client.post(
-        "/api/v1/auth/login",
-        json={"email": "other@example.com", "password": "otherpass123"},
-    )
-    token = login_resp.json()["access_token"]
-    other_headers = {"Authorization": f"Bearer {token}"}
 
     # Other user cannot see the location's files
     resp = await client.get(
         f"/api/v1/locations/{loc_id}/files",
-        headers=other_headers,
+        headers=other_auth_headers,
     )
     assert resp.status_code == 404
 
@@ -132,35 +120,22 @@ async def test_list_requires_read_access(
 async def test_attach_requires_write_access(
     authenticated_client: httpx.AsyncClient,
     client: httpx.AsyncClient,
+    other_user: User,
+    other_auth_headers: dict[str, str],
 ) -> None:
     loc_id = await _create_location(authenticated_client)
     file_id = await _create_active_file(authenticated_client)
 
     # Share with view-only
-    await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "viewer@example.com",
-            "password": "viewerpass123",
-            "display_name": "Viewer",
-        },
-    )
-    login_resp = await client.post(
-        "/api/v1/auth/login",
-        json={"email": "viewer@example.com", "password": "viewerpass123"},
-    )
-    token = login_resp.json()["access_token"]
-    viewer_headers = {"Authorization": f"Bearer {token}"}
-
     await authenticated_client.post(
         f"/api/v1/locations/{loc_id}/shares",
-        json={"email": "viewer@example.com", "permission": "view"},
+        json={"email": "other@example.com", "permission": "view"},
     )
 
     # Viewer tries to attach — gets 403 (or 404 if share not visible in test txn)
     resp = await client.post(
         f"/api/v1/locations/{loc_id}/files",
         json={"file_id": file_id},
-        headers=viewer_headers,
+        headers=other_auth_headers,
     )
     assert resp.status_code in (403, 404)
