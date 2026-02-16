@@ -18,7 +18,15 @@ convention = {
     "pk": "pk_%(table_name)s",
 }
 
-engine = create_async_engine(get_settings().database_url)
+engine = create_async_engine(
+    get_settings().database_url,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    connect_args={
+        "timeout": 5,
+        "command_timeout": 10,
+    },
+)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 
