@@ -25,6 +25,7 @@ services:
       - ./app:/app/app
       - ./tests:/app/tests
       - ./alembic:/app/alembic
+      - ./scripts:/app/scripts
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/locationsbook
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}

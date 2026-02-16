@@ -40,6 +40,7 @@ class ProjectLocationResponse(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
     added_by_id: uuid.UUID
+    source_location_id: uuid.UUID | None = None
     address: str
     name: str | None = None
     city: str | None = None
@@ -47,7 +48,7 @@ class ProjectLocationResponse(BaseModel):
     country: str | None = None
     latitude: float | None = None
     longitude: float | None = None
-    location_type: str | None = None
+    location_type: LocationType | None = None
     description: str | None = None
     featured_image: FeaturedImageResponse | None = None
     created_at: datetime | None = None
@@ -65,7 +66,7 @@ class ProjectLocationListResponse(BaseModel):
     city: str | None = None
     state: str | None = None
     country: str | None = None
-    location_type: str | None = None
+    location_type: LocationType | None = None
     featured_image: FeaturedImageResponse | None = None
     created_at: datetime | None = None
 

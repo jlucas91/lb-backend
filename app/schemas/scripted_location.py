@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.models.enums import LocationType
 from app.schemas.file import FeaturedImageResponse
 
 
@@ -60,7 +61,7 @@ class ProjectLocationSummary(BaseModel):
     country: str | None = None
     latitude: float | None = None
     longitude: float | None = None
-    location_type: str | None = None
+    location_type: LocationType | None = None
     description: str | None = None
     featured_image: FeaturedImageResponse | None = None
 

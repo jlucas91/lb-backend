@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.models.enums import FileStatus, FileType
+
 
 # Upload flow
 class UploadRequest(BaseModel):
@@ -31,9 +33,9 @@ class FileUpdate(BaseModel):
 class FileResponse(BaseModel):
     id: uuid.UUID
     type: str
-    status: str
+    status: FileStatus
     uploaded_by_id: uuid.UUID
-    file_category: str
+    file_category: FileType
     storage_key: str
     filename: str
     content_type: str

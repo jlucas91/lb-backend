@@ -24,7 +24,7 @@ class ScoutingResponse(BaseModel):
     scouted_by_id: uuid.UUID
     notes: str | None = None
     scouted_at: datetime
-    status: str
+    status: ScoutingStatus
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -36,7 +36,7 @@ class ScoutingListResponse(BaseModel):
     location_id: uuid.UUID
     scouted_by_id: uuid.UUID
     scouted_at: datetime
-    status: str
+    status: ScoutingStatus
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}

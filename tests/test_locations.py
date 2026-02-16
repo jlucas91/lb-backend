@@ -116,7 +116,7 @@ async def test_pagination(
     data = resp.json()
     assert data["total"] == 5
     assert len(data["items"]) == 2
-    assert data["pages"] == 3
+    assert data["total_pages"] == 3
 
 
 async def test_unauthorized_access(client: httpx.AsyncClient) -> None:

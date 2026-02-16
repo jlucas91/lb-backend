@@ -12,6 +12,7 @@ from app.controllers.production import (
     update_production,
 )
 from app.core.database import get_db
+from app.models.production import Production
 from app.models.user import User
 from app.schemas.production import (
     ProductionCreate,
@@ -22,13 +23,26 @@ from app.schemas.production import (
 router = APIRouter()
 
 
+def _to_response(prod: Production, role: str) -> ProductionResponse:
+    data = {
+        "id": prod.id,
+        "name": prod.name,
+        "description": prod.description,
+        "status": prod.status,
+        "my_role": role,
+        "created_at": prod.created_at,
+        "updated_at": prod.updated_at,
+    }
+    return ProductionResponse.model_validate(data)
+
+
 @router.get("", response_model=list[ProductionResponse])
 async def list_my_productions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[ProductionResponse]:
-    prods = await list_productions(db, current_user)
-    return [ProductionResponse.model_validate(p) for p in prods]
+    items = await list_productions(db, current_user)
+    return [_to_response(prod, role) for prod, role in items]
 
 
 @router.post("", response_model=ProductionResponse, status_code=201)
@@ -39,7 +53,7 @@ async def create(
 ) -> ProductionResponse:
     prod = await create_production(db, current_user, data)
     await db.commit()
-    return ProductionResponse.model_validate(prod)
+    return _to_response(prod, "owner")
 
 
 @router.get("/{production_id}", response_model=ProductionResponse)
@@ -48,8 +62,8 @@ async def get(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ProductionResponse:
-    prod = await get_production(db, production_id, current_user)
-    return ProductionResponse.model_validate(prod)
+    prod, member = await get_production(db, production_id, current_user)
+    return _to_response(prod, member.role)
 
 
 @router.patch("/{production_id}", response_model=ProductionResponse)
@@ -59,9 +73,9 @@ async def update(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ProductionResponse:
-    prod = await update_production(db, production_id, current_user, data)
+    prod, member = await update_production(db, production_id, current_user, data)
     await db.commit()
-    return ProductionResponse.model_validate(prod)
+    return _to_response(prod, member.role)
 
 
 @router.delete("/{production_id}", status_code=204)

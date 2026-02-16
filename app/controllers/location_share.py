@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import bad_request, conflict, not_found
 from app.models.location import UserLocation
@@ -57,7 +58,9 @@ async def list_shares(
 ) -> list[LocationShare]:
     await _require_owner(db, location_id, current_user.id)
     result = await db.execute(
-        select(LocationShare).where(LocationShare.location_id == location_id)
+        select(LocationShare)
+        .where(LocationShare.location_id == location_id)
+        .options(selectinload(LocationShare.shared_with))
     )
     return list(result.scalars().all())
 
@@ -86,6 +89,13 @@ async def list_shared_with_me(
     db: AsyncSession, current_user: User
 ) -> list[LocationShare]:
     result = await db.execute(
-        select(LocationShare).where(LocationShare.shared_with_id == current_user.id)
+        select(LocationShare)
+        .where(LocationShare.shared_with_id == current_user.id)
+        .options(
+            selectinload(LocationShare.location).selectinload(
+                UserLocation.featured_file
+            ),
+            selectinload(LocationShare.shared_by),
+        )
     )
     return list(result.scalars().all())

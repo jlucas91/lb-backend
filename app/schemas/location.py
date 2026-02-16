@@ -42,7 +42,7 @@ class UserLocationResponse(BaseModel):
     country: str | None = None
     latitude: float | None = None
     longitude: float | None = None
-    location_type: str | None = None
+    location_type: LocationType | None = None
     description: str | None = None
     featured_image: FeaturedImageResponse | None = None
     created_at: datetime | None = None
@@ -59,7 +59,7 @@ class UserLocationListResponse(BaseModel):
     city: str | None = None
     state: str | None = None
     country: str | None = None
-    location_type: str | None = None
+    location_type: LocationType | None = None
     featured_image: FeaturedImageResponse | None = None
     created_at: datetime | None = None
 

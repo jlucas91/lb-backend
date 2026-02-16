@@ -50,7 +50,7 @@ async def test_create_project_location(
     assert data["city"] == "Brooklyn"
     assert data["location_type"] == "industrial"
     assert data["project_id"] == proj_id
-    assert data["source_location_id"] is None
+    assert data["source_location_id"] is not None
 
 
 # --- Copy ---

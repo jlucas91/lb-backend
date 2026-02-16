@@ -48,18 +48,20 @@ async def require_manager_or_owner(
 
 async def get_production(
     db: AsyncSession, production_id: uuid.UUID, user: User
-) -> Production:
-    await require_member(db, production_id, user.id)
+) -> tuple[Production, ProductionMember]:
+    member = await require_member(db, production_id, user.id)
     result = await db.execute(select(Production).where(Production.id == production_id))
     prod = result.scalar_one_or_none()
     if prod is None:
         raise not_found("Production not found")
-    return prod
+    return prod, member
 
 
-async def list_productions(db: AsyncSession, user: User) -> list[Production]:
+async def list_productions(
+    db: AsyncSession, user: User
+) -> list[tuple[Production, str]]:
     query = (
-        select(Production)
+        select(Production, ProductionMember.role)
         .join(
             ProductionMember,
             Production.id == ProductionMember.production_id,
@@ -68,7 +70,7 @@ async def list_productions(db: AsyncSession, user: User) -> list[Production]:
         .order_by(Production.created_at.desc())
     )
     result = await db.execute(query)
-    return list(result.scalars().all())
+    return [(row[0], row[1]) for row in result.all()]
 
 
 async def update_production(
@@ -76,8 +78,8 @@ async def update_production(
     production_id: uuid.UUID,
     user: User,
     data: ProductionUpdate,
-) -> Production:
-    await require_manager_or_owner(db, production_id, user.id)
+) -> tuple[Production, ProductionMember]:
+    member = await require_manager_or_owner(db, production_id, user.id)
     result = await db.execute(select(Production).where(Production.id == production_id))
     prod = result.scalar_one_or_none()
     if prod is None:
@@ -89,7 +91,7 @@ async def update_production(
         setattr(prod, key, value)
     await db.flush()
     await db.refresh(prod)
-    return prod
+    return prod, member
 
 
 async def delete_production(

@@ -2,12 +2,14 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.controllers.production import (
     require_manager_or_owner,
     require_member,
 )
 from app.core.exceptions import conflict, not_found
+from app.models.location import UserLocation
 from app.models.production_location import ProductionLocation
 from app.models.user import User
 from app.schemas.production import (
@@ -39,7 +41,21 @@ async def add_location(
     )
     db.add(pl)
     await db.flush()
-    return pl
+    # Reload with relationships
+    result = await db.execute(
+        select(ProductionLocation)
+        .where(
+            ProductionLocation.production_id == production_id,
+            ProductionLocation.location_id == data.location_id,
+        )
+        .options(
+            selectinload(ProductionLocation.added_by),
+            selectinload(ProductionLocation.location).selectinload(
+                UserLocation.featured_file
+            ),
+        )
+    )
+    return result.scalar_one()
 
 
 async def list_locations(
@@ -47,8 +63,13 @@ async def list_locations(
 ) -> list[ProductionLocation]:
     await require_member(db, production_id, current_user.id)
     result = await db.execute(
-        select(ProductionLocation).where(
-            ProductionLocation.production_id == production_id
+        select(ProductionLocation)
+        .where(ProductionLocation.production_id == production_id)
+        .options(
+            selectinload(ProductionLocation.added_by),
+            selectinload(ProductionLocation.location).selectinload(
+                UserLocation.featured_file
+            ),
         )
     )
     return list(result.scalars().all())
@@ -63,9 +84,16 @@ async def update_status(
 ) -> ProductionLocation:
     await require_manager_or_owner(db, production_id, current_user.id)
     result = await db.execute(
-        select(ProductionLocation).where(
+        select(ProductionLocation)
+        .where(
             ProductionLocation.production_id == production_id,
             ProductionLocation.location_id == location_id,
+        )
+        .options(
+            selectinload(ProductionLocation.added_by),
+            selectinload(ProductionLocation.location).selectinload(
+                UserLocation.featured_file
+            ),
         )
     )
     pl = result.scalar_one_or_none()

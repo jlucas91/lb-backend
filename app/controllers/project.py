@@ -50,18 +50,20 @@ async def require_manager_or_owner(
     return member
 
 
-async def get_project(db: AsyncSession, project_id: uuid.UUID, user: User) -> Project:
-    await require_member(db, project_id, user.id)
+async def get_project(
+    db: AsyncSession, project_id: uuid.UUID, user: User
+) -> tuple[Project, ProjectMember]:
+    member = await require_member(db, project_id, user.id)
     result = await db.execute(select(Project).where(Project.id == project_id))
     proj = result.scalar_one_or_none()
     if proj is None:
         raise not_found("Project not found")
-    return proj
+    return proj, member
 
 
-async def list_projects(db: AsyncSession, user: User) -> list[Project]:
+async def list_projects(db: AsyncSession, user: User) -> list[tuple[Project, str]]:
     query = (
-        select(Project)
+        select(Project, ProjectMember.role)
         .join(
             ProjectMember,
             Project.id == ProjectMember.project_id,
@@ -70,7 +72,7 @@ async def list_projects(db: AsyncSession, user: User) -> list[Project]:
         .order_by(Project.created_at.desc())
     )
     result = await db.execute(query)
-    return list(result.scalars().all())
+    return [(row[0], row[1]) for row in result.all()]
 
 
 async def update_project(
@@ -78,8 +80,8 @@ async def update_project(
     project_id: uuid.UUID,
     user: User,
     data: ProjectUpdate,
-) -> Project:
-    await require_manager_or_owner(db, project_id, user.id)
+) -> tuple[Project, ProjectMember]:
+    member = await require_manager_or_owner(db, project_id, user.id)
     result = await db.execute(select(Project).where(Project.id == project_id))
     proj = result.scalar_one_or_none()
     if proj is None:
@@ -93,7 +95,7 @@ async def update_project(
         setattr(proj, key, value)
     await db.flush()
     await db.refresh(proj)
-    return proj
+    return proj, member
 
 
 async def delete_project(db: AsyncSession, project_id: uuid.UUID, user: User) -> None:

@@ -6,4 +6,4 @@ class PaginatedResponse[T](BaseModel):
     total: int
     page: int
     per_page: int
-    pages: int
+    total_pages: int

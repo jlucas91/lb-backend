@@ -23,8 +23,9 @@ class ProjectResponse(BaseModel):
     id: uuid.UUID
     name: str
     description: str | None = None
-    project_type: str
-    status: str
+    project_type: ProjectType
+    status: ProjectStatus
+    my_role: ProjectRole
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -45,7 +46,7 @@ class ProjectMemberResponse(BaseModel):
     user_id: uuid.UUID
     display_name: str
     email: str
-    role: str
+    role: ProjectRole
     joined_at: datetime | None = None
 
     model_config = {"from_attributes": True}

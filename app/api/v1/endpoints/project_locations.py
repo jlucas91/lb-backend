@@ -62,7 +62,7 @@ async def list_locations(
         total=total,
         page=page,
         per_page=per_page,
-        pages=compute_pages(total, per_page),
+        total_pages=compute_pages(total, per_page),
     )
 
 
