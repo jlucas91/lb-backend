@@ -9,8 +9,6 @@ from app.core.exceptions import bad_request, forbidden, not_found
 from app.models.location import UserLocation
 from app.models.location_file import LocationFile
 from app.models.location_share import LocationShare
-from app.models.production_location import ProductionLocation
-from app.models.production_member import ProductionMember
 from app.models.user import User
 from app.schemas.location import UserLocationCreate, UserLocationUpdate
 
@@ -42,15 +40,6 @@ def _accessible_locations_query(user_id: uuid.UUID) -> Select[tuple[UserLocation
         .where(LocationShare.shared_with_id == user_id)
         .correlate(None)
     )
-    production_ids = (
-        select(ProductionLocation.location_id)
-        .join(
-            ProductionMember,
-            ProductionLocation.production_id == ProductionMember.production_id,
-        )
-        .where(ProductionMember.user_id == user_id)
-        .correlate(None)
-    )
     return (
         select(UserLocation)
         .options(joinedload(UserLocation.featured_file))
@@ -58,7 +47,6 @@ def _accessible_locations_query(user_id: uuid.UUID) -> Select[tuple[UserLocation
             or_(
                 UserLocation.owner_id == user_id,
                 UserLocation.id.in_(shared_ids),
-                UserLocation.id.in_(production_ids),
             )
         )
     )

@@ -50,6 +50,12 @@ async def _create_tables() -> AsyncIterator[None]:
     async with engine.begin() as conn:
         # Drop legacy tables that may have stale FK constraints
         await conn.execute(text("DROP TABLE IF EXISTS files CASCADE"))
+        await conn.execute(
+            text(
+                "DROP TABLE IF EXISTS production_locations,"
+                " production_members, productions CASCADE"
+            )
+        )
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield

@@ -21,25 +21,6 @@ class FileType(enum.StrEnum):
     OTHER = "other"
 
 
-class ProductionStatus(enum.StrEnum):
-    ACTIVE = "active"
-    WRAPPED = "wrapped"
-    ARCHIVED = "archived"
-
-
-class ProductionRole(enum.StrEnum):
-    OWNER = "owner"
-    MANAGER = "manager"
-    MEMBER = "member"
-
-
-class ProductionLocationStatus(enum.StrEnum):
-    SCOUTED = "scouted"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    BOOKED = "booked"
-
-
 class SharePermission(enum.StrEnum):
     VIEW = "view"
     EDIT = "edit"

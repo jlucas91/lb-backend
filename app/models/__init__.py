@@ -5,9 +5,6 @@ from app.models.folder import Folder
 from app.models.location import UserLocation
 from app.models.location_file import LocationFile
 from app.models.location_share import LocationShare
-from app.models.production import Production
-from app.models.production_location import ProductionLocation
-from app.models.production_member import ProductionMember
 from app.models.project import Project
 from app.models.project_location import ProjectLocation
 from app.models.project_location_file import ProjectLocationFile
@@ -26,9 +23,6 @@ __all__ = [
     "Image",
     "LocationFile",
     "LocationShare",
-    "Production",
-    "ProductionLocation",
-    "ProductionMember",
     "Project",
     "ProjectLocation",
     "ProjectLocationFile",

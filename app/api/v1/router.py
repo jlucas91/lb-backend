@@ -8,9 +8,6 @@ from app.api.v1.endpoints import (
     health,
     location_files,
     locations,
-    production_locations,
-    production_members,
-    productions,
     project_location_files,
     project_locations,
     project_members,
@@ -30,15 +27,6 @@ router.include_router(
 )
 router.include_router(shares.router, prefix="/locations", tags=["shares"])
 router.include_router(shares.shared_with_me_router, tags=["shares"])
-router.include_router(productions.router, prefix="/productions", tags=["productions"])
-router.include_router(
-    production_members.router, prefix="/productions", tags=["production-members"]
-)
-router.include_router(
-    production_locations.router,
-    prefix="/productions",
-    tags=["production-locations"],
-)
 router.include_router(projects.router, prefix="/projects", tags=["projects"])
 router.include_router(
     project_members.router, prefix="/projects", tags=["project-members"]
