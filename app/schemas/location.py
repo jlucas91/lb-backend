@@ -59,6 +59,8 @@ class UserLocationListResponse(BaseModel):
     city: str | None = None
     state: str | None = None
     country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     location_type: LocationType | None = None
     featured_image: FeaturedImageResponse | None = None
     created_at: datetime | None = None
