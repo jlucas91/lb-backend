@@ -15,6 +15,8 @@ from app.api.v1.endpoints import (
     scoutings,
     scripted_locations,
     shares,
+    smugmug,
+    user_folders,
 )
 
 router = APIRouter()
@@ -45,3 +47,7 @@ router.include_router(
     scripted_locations.router, prefix="/projects", tags=["scripted-locations"]
 )
 router.include_router(scoutings.router, prefix="/locations", tags=["scoutings"])
+router.include_router(smugmug.router, prefix="/smugmug", tags=["smugmug"])
+router.include_router(
+    user_folders.router, prefix="/user-folders", tags=["user-folders"]
+)

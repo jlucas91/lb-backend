@@ -17,6 +17,7 @@ class UserLocationCreate(BaseModel):
     longitude: float | None = None
     location_type: LocationType | None = None
     description: str | None = None
+    folder_id: uuid.UUID | None = None
 
 
 class UserLocationUpdate(BaseModel):
@@ -30,11 +31,13 @@ class UserLocationUpdate(BaseModel):
     location_type: LocationType | None = None
     description: str | None = None
     featured_file_id: uuid.UUID | None = None
+    folder_id: uuid.UUID | None = None
 
 
 class UserLocationResponse(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
+    folder_id: uuid.UUID | None = None
     address: str
     name: str | None = None
     city: str | None = None
@@ -54,6 +57,7 @@ class UserLocationResponse(BaseModel):
 class UserLocationListResponse(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
+    folder_id: uuid.UUID | None = None
     address: str
     name: str | None = None
     city: str | None = None

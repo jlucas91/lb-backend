@@ -27,6 +27,9 @@ class UserLocation(LocationFieldsMixin, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    folder_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("user_folders.id", ondelete="SET NULL"), index=True
+    )
     featured_file_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("files.id", ondelete="SET NULL"), index=True
     )

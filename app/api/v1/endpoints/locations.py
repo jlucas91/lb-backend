@@ -31,6 +31,8 @@ router = APIRouter()
 async def list_locations(
     location_type: str | None = None,
     q: str | None = None,
+    folder_id: uuid.UUID | None = Query(default=None),
+    root_only: bool = Query(default=False),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=1000),
     current_user: User = Depends(get_current_user),
@@ -38,7 +40,14 @@ async def list_locations(
     storage: S3StorageService = Depends(get_storage),
 ) -> PaginatedResponse[UserLocationListResponse]:
     items, total = await list_user_locations(
-        db, current_user, location_type=location_type, q=q, page=page, per_page=per_page
+        db,
+        current_user,
+        location_type=location_type,
+        q=q,
+        folder_id=folder_id,
+        root_only=root_only,
+        page=page,
+        per_page=per_page,
     )
     responses: list[UserLocationListResponse] = []
     for loc in items:

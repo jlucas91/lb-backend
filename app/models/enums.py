@@ -57,3 +57,9 @@ class FileStatus(enum.StrEnum):
     PENDING = "pending"
     ACTIVE = "active"
     ERROR = "error"
+
+
+class SmugmugSyncStatus(enum.StrEnum):
+    IDLE = "idle"
+    SYNCING = "syncing"
+    FAILED = "failed"

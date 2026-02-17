@@ -13,7 +13,14 @@ from app.models.scouting import Scouting
 from app.models.scouting_file import ScoutingFile
 from app.models.scripted_location import ScriptedLocation
 from app.models.scripted_location_location import ScriptedLocationLocation
+from app.models.smugmug import (
+    SmugmugAccount,
+    SmugmugFolder,
+    SmugmugGallery,
+    SmugmugImage,
+)
 from app.models.user import User
+from app.models.user_folder import UserFolder
 
 __all__ = [
     "Base",
@@ -31,6 +38,11 @@ __all__ = [
     "ScoutingFile",
     "ScriptedLocation",
     "ScriptedLocationLocation",
+    "SmugmugAccount",
+    "SmugmugFolder",
+    "SmugmugGallery",
+    "SmugmugImage",
     "User",
+    "UserFolder",
     "UserLocation",
 ]
