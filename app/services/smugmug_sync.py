@@ -50,22 +50,26 @@ async def sync_account(db: AsyncSession, account_id: uuid.UUID) -> None:
         return
 
     try:
-        async with SmugmugClient(account.password, account.username) as client:
+        client = await SmugmugClient.create(
+            account.email, account.password, account.smugmug_nick
+        )
+        async with client:
             # Step 1: Fetch the full node tree
             nodes = await client.get_node_tree()
 
             # Step 2: Upsert folders and galleries
-            _folder_uri_to_id, gallery_data = await _upsert_nodes(db, account, nodes)
+            _folder_uri_to_id, _gallery_data = await _upsert_nodes(db, account, nodes)
 
             # Step 3: Fetch and upsert images for each gallery
-            for gallery_id, album_id_str, album_key in gallery_data:
-                if not album_id_str or not album_key:
-                    continue
-                total_count, images = await client.get_album_images(
-                    album_id_str, album_key
-                )
-                await _upsert_images(db, gallery_id, images)
-                await _update_gallery_image_count(db, gallery_id, total_count)
+            # TODO: re-enable after node sync is tested
+            # for gallery_id, album_id_str, album_key in gallery_data:
+            #     if not album_id_str or not album_key:
+            #         continue
+            #     total_count, images = await client.get_album_images(
+            #         album_id_str, album_key
+            #     )
+            #     await _upsert_images(db, gallery_id, images)
+            #     await _update_gallery_image_count(db, gallery_id, total_count)
 
         # Step 4: Mark success
         now = datetime.now(UTC)

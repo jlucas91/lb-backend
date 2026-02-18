@@ -9,21 +9,24 @@ from app.models.enums import SmugmugSyncStatus
 
 
 class SmugmugAccountCreate(BaseModel):
-    username: str
+    email: str
     password: str
+    smugmug_nick: str
     nickname: str | None = None
 
 
 class SmugmugAccountUpdate(BaseModel):
-    username: str | None = None
+    email: str | None = None
     password: str | None = None
+    smugmug_nick: str | None = None
     nickname: str | None = None
 
 
 class SmugmugAccountResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    username: str
+    email: str
+    smugmug_nick: str
     nickname: str | None = None
     sync_status: SmugmugSyncStatus
     last_synced_at: datetime | None = None

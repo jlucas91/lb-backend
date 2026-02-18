@@ -12,7 +12,35 @@ All calls are GET requests with parameters in the query string. Authentication i
 
 ## Authentication
 
-SmugMug uses cookie-based session auth. The key cookie is `SMSESS`. We don't yet know the login endpoint — for now we store and replay the session cookie. Future work: discover the login flow to obtain `SMSESS` from username/password programmatically.
+SmugMug uses cookie-based session auth. The key cookie is `SMSESS`. We authenticate programmatically via their internal login flow:
+
+### Login flow
+
+1. **GET `https://www.smugmug.com/login`** — returns the login page HTML and sets an initial `SMSESS` cookie.
+2. **Extract `csrfToken`** from the page HTML via regex: `csrfToken":"([a-f0-9]{32})"`.
+3. **POST to the JSON-RPC API** with `method=rpc.user.login` and form-encoded body:
+
+```
+Email={email}&Password={password}&OTPCode=&KeepLoggedIn=1&IsOAuth=0
+&TimeZone=America/New_York&method=rpc.user.login&_token={csrfToken}
+```
+
+Required headers:
+- `X-Requested-With: XMLHttpRequest`
+- `Referer: https://www.smugmug.com/login`
+- `Origin: https://www.smugmug.com`
+- `Content-Type: application/x-www-form-urlencoded; charset=UTF-8`
+- Full Chrome `User-Agent` string (SmugMug returns "Bad bot" for short/missing UA)
+
+4. **On success** (`stat: "ok"`, HTTP 200): The `Set-Cookie` header contains the authenticated `SMSESS` cookie. On failure: HTTP 403 for invalid credentials, or `stat: "fail"` with a `message` field.
+
+The authenticated `SMSESS` cookie is then used for all subsequent API calls.
+
+### Account fields
+
+- `email` — SmugMug login email (used for authentication)
+- `password` — SmugMug login password
+- `smugmug_nick` — SmugMug vanity URL nickname (e.g. `veronicarioseco`), used as the `nick` parameter in API calls
 
 ---
 
@@ -236,5 +264,4 @@ For a given account: **1 + N** where N = number of galleries. A typical account 
 
 - **Image download to S3**: After upserting an image, if `file_id` is null, download the image from `smugmug_url`, upload to S3, create a `File` record, and link it
 - **Incremental sync**: Compare `DateModified` on nodes to skip unchanged galleries
-- **Login flow**: Discover how to obtain `SMSESS` from username/password to fully automate auth
 - **Rate limiting**: Add delays between API calls if SmugMug starts throttling

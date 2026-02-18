@@ -14,8 +14,9 @@ class SmugmugAccount(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    username: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255))
     password: Mapped[str] = mapped_column(String(255))
+    smugmug_nick: Mapped[str] = mapped_column(String(255))
     nickname: Mapped[str | None] = mapped_column(String(255))
     sync_status: Mapped[str] = mapped_column(String(20), default="idle")
     last_synced_at: Mapped[datetime | None] = mapped_column()

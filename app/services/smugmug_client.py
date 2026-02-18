@@ -1,16 +1,29 @@
 """HTTP client for SmugMug's internal JSON-RPC API.
 
 See docs/smugmug-sync.md for full API documentation.
+
+Login flow:
+1. GET /login → initial SMSESS cookie + csrfToken in HTML
+2. POST rpc.user.login with credentials + csrfToken + initial SMSESS
+3. Response Set-Cookie contains the authenticated SMSESS
 """
 
 import logging
+import re
 from typing import Any
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://www.smugmug.com/services/api/json/1.4.0/"
+SMUGMUG_BASE = "https://www.smugmug.com"
+API_URL = f"{SMUGMUG_BASE}/services/api/json/1.4.0/"
+
+_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/144.0.0.0 Safari/537.36"
+)
 
 # Size codes in preference order (largest usable first).
 _SIZE_PREFERENCE = ("XL", "L", "M", "S")
@@ -20,27 +33,94 @@ class SmugmugAPIError(Exception):
     """Raised when a SmugMug API call fails."""
 
 
+class SmugmugLoginError(SmugmugAPIError):
+    """Raised when login to SmugMug fails."""
+
+
+async def _login(email: str, password: str) -> str:
+    """Authenticate with SmugMug and return the session cookie.
+
+    Returns the SMSESS cookie value for use in subsequent API calls.
+    """
+    async with httpx.AsyncClient(
+        headers={"User-Agent": _USER_AGENT},
+        follow_redirects=True,
+        timeout=30.0,
+    ) as http:
+        # Step 1: GET /login to get initial SMSESS + csrfToken
+        login_page = await http.get(f"{SMUGMUG_BASE}/login")
+        login_page.raise_for_status()
+
+        # Extract csrfToken from page HTML
+        m = re.search(r'csrfToken":"([a-f0-9]{32})"', login_page.text)
+        if m is None:
+            raise SmugmugLoginError("Could not find csrfToken on login page")
+        csrf_token = m.group(1)
+
+        # Step 2: POST login with credentials
+        resp = await http.post(
+            API_URL,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": ("application/x-www-form-urlencoded; charset=UTF-8"),
+                "Origin": SMUGMUG_BASE,
+                "Referer": f"{SMUGMUG_BASE}/login",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            data={
+                "Email": email,
+                "Password": password,
+                "OTPCode": "",
+                "KeepLoggedIn": "1",
+                "IsOAuth": "0",
+                "TimeZone": "America/New_York",
+                "method": "rpc.user.login",
+                "_token": csrf_token,
+            },
+        )
+
+        if resp.status_code == 403:
+            raise SmugmugLoginError("Login failed: invalid credentials")
+
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("stat") != "ok":
+            raise SmugmugLoginError(
+                f"Login failed: {data.get('message', 'unknown error')}"
+            )
+
+        # The authenticated SMSESS is in the response cookies
+        smsess = resp.cookies.get("SMSESS")
+        if not smsess:
+            raise SmugmugLoginError("Login succeeded but no session cookie returned")
+
+        logger.info("Logged in to SmugMug as %s", email)
+        return smsess
+
+
 class SmugmugClient:
     """Async client for SmugMug's internal organizer API.
 
-    Authenticates via SMSESS session cookie.
+    Use the `create` classmethod to build an authenticated client.
     """
 
     def __init__(self, session_cookie: str, nick: str) -> None:
         self._nick = nick
         self._http = httpx.AsyncClient(
-            base_url=BASE_URL,
+            base_url=API_URL,
             cookies={"SMSESS": session_cookie},
             headers={
                 "Accept": "application/json",
-                "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/144.0.0.0 Safari/537.36"
-                ),
+                "User-Agent": _USER_AGENT,
             },
             timeout=30.0,
         )
+
+    @classmethod
+    async def create(cls, email: str, password: str, nick: str) -> "SmugmugClient":
+        """Login and return an authenticated client."""
+        smsess = await _login(email, password)
+        return cls(smsess, nick)
 
     async def close(self) -> None:
         await self._http.aclose()
