@@ -17,6 +17,7 @@ dependencies = [
     "python-multipart",
     "aioboto3",
     "celery[sqs]",
+    "httpx",
 ]
 
 [dependency-groups]
