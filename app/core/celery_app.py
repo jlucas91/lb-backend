@@ -23,7 +23,7 @@ def create_celery_app() -> Celery:
         worker_prefetch_multiplier=1,
         task_default_queue=settings.celery_queue_name,
     )
-    app.autodiscover_tasks(["app.tasks"])
+    app.conf.include = ["app.tasks.example", "app.tasks.smugmug"]
     return app
 
 

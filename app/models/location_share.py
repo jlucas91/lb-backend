@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -20,7 +20,9 @@ class LocationShare(Base):
         ForeignKey("users.id"), index=True
     )
     permission: Mapped[str] = mapped_column(String(10), default="view")
-    created_at: Mapped[datetime | None] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     location = relationship("UserLocation", lazy="noload")
     shared_by = relationship("User", foreign_keys=[shared_by_id], lazy="noload")

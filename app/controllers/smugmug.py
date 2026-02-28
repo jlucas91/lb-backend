@@ -49,9 +49,8 @@ async def create_account(
 ) -> SmugmugAccount:
     account = SmugmugAccount(
         user_id=user.id,
-        username=data.username,
+        email=data.email,
         password=data.password,
-        nickname=data.nickname,
         sync_status=SmugmugSyncStatus.IDLE.value,
     )
     db.add(account)

@@ -27,6 +27,7 @@ from app.schemas.smugmug import (
     SmugmugGalleryResponse,
     SmugmugImageResponse,
 )
+from app.tasks.smugmug import sync_account_task
 
 router = APIRouter()
 
@@ -116,6 +117,7 @@ async def sync(
 ) -> SmugmugAccountResponse:
     account = await trigger_sync(db, current_user, account_id)
     await db.commit()
+    sync_account_task.delay(str(account_id))
     return SmugmugAccountResponse.model_validate(account)
 
 
