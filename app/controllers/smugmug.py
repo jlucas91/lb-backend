@@ -51,8 +51,6 @@ async def create_account(
         user_id=user.id,
         email=data.email,
         password=data.password,
-        smugmug_nick=data.smugmug_nick,
-        nickname=data.nickname,
         sync_status=SmugmugSyncStatus.IDLE.value,
     )
     db.add(account)

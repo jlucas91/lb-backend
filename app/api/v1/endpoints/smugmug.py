@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -16,7 +16,7 @@ from app.controllers.smugmug import (
     trigger_sync,
     update_account,
 )
-from app.core.database import async_session, get_db
+from app.core.database import get_db
 from app.models.user import User
 from app.schemas.smugmug import (
     SmugmugAccountCreate,
@@ -27,7 +27,7 @@ from app.schemas.smugmug import (
     SmugmugGalleryResponse,
     SmugmugImageResponse,
 )
-from app.services.smugmug_sync import sync_account
+from app.tasks.smugmug import sync_account_task
 
 router = APIRouter()
 
@@ -112,18 +112,12 @@ async def delete(
 )
 async def sync(
     account_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> SmugmugAccountResponse:
     account = await trigger_sync(db, current_user, account_id)
     await db.commit()
-
-    async def _run_sync() -> None:
-        async with async_session() as bg_db:
-            await sync_account(bg_db, account_id)
-
-    background_tasks.add_task(_run_sync)
+    sync_account_task.delay(str(account_id))
     return SmugmugAccountResponse.model_validate(account)
 
 

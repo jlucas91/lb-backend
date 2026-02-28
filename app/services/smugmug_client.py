@@ -26,7 +26,7 @@ _USER_AGENT = (
 )
 
 # Size codes in preference order (largest usable first).
-_SIZE_PREFERENCE = ("XL", "L", "M", "S")
+_SIZE_PREFERENCE = ("D", "5K", "4K", "X5", "X4", "X3", "X2", "XL", "L", "M", "S")
 
 
 class SmugmugAPIError(Exception):
@@ -104,8 +104,8 @@ class SmugmugClient:
     Use the `create` classmethod to build an authenticated client.
     """
 
-    def __init__(self, session_cookie: str, nick: str) -> None:
-        self._nick = nick
+    def __init__(self, session_cookie: str) -> None:
+        self.session_cookie = session_cookie
         self._http = httpx.AsyncClient(
             base_url=API_URL,
             cookies={"SMSESS": session_cookie},
@@ -117,10 +117,10 @@ class SmugmugClient:
         )
 
     @classmethod
-    async def create(cls, email: str, password: str, nick: str) -> "SmugmugClient":
+    async def create(cls, email: str, password: str) -> "SmugmugClient":
         """Login and return an authenticated client."""
         smsess = await _login(email, password)
-        return cls(smsess, nick)
+        return cls(smsess)
 
     async def close(self) -> None:
         await self._http.aclose()
@@ -144,7 +144,6 @@ class SmugmugClient:
                 "paths": "/",
                 "depth": 10,
                 "childrenOnly": "true",
-                "nick": self._nick,
                 "pageSize": 500,
             },
         )
@@ -155,7 +154,7 @@ class SmugmugClient:
                 f"getnodesbypath failed: {data.get('message', data.get('stat'))}"
             )
         nodes: list[dict[str, Any]] = data.get("nodes", [])
-        logger.info("Fetched %d nodes for %s", len(nodes), self._nick)
+        logger.info("Fetched %d nodes", len(nodes))
         return nodes
 
     async def get_album_images(
@@ -175,7 +174,6 @@ class SmugmugClient:
                     "method": "rpc.organizer.getimages",
                     "albumId": album_id,
                     "albumKey": album_key,
-                    "nick": self._nick,
                     "limit": 100,
                     "startIndex": start_index,
                 },
@@ -203,10 +201,10 @@ class SmugmugClient:
 
 
 def pick_best_image_url(sizes: dict[str, Any]) -> str | None:
-    """Pick the URL of the largest usable, non-cold image size."""
+    """Pick the URL of the largest usable image size."""
     for code in _SIZE_PREFERENCE:
         size = sizes.get(code)
-        if size and size.get("usable") and not size.get("cold"):
+        if size and size.get("usable"):
             url: str | None = size.get("url")
             if url:
                 return url

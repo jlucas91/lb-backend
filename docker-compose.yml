@@ -37,11 +37,16 @@ services:
         condition: service_healthy
 
   worker:
-    build: .
+    build:
+      context: .
+      target: dev
+    volumes:
+      - ./app:/app/app
     command: >
       celery -A app.core.celery_app:celery_app worker
       --loglevel=info
-      --concurrency=2
+      --pool=prefork
+      --concurrency=4
       -Q locationsbook-default
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/locationsbook

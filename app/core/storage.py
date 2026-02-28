@@ -66,6 +66,17 @@ class S3StorageService:
             )
         return url
 
+    async def upload_object(self, key: str, data: bytes, content_type: str) -> int:
+        """Upload bytes directly to S3. Returns size in bytes."""
+        async with self._s3_client() as s3:
+            await s3.put_object(
+                Bucket=self._bucket,
+                Key=key,
+                Body=data,
+                ContentType=content_type,
+            )
+        return len(data)
+
     async def head_object(self, key: str) -> ObjectMeta:
         async with self._s3_client() as s3:
             resp = await s3.head_object(Bucket=self._bucket, Key=key)
